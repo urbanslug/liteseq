@@ -1,0 +1,7 @@
+((nil . ((projectile-project-compilation-cmd . "cmake -B build -DCMAKE_BUILD_TYPE=Debug -S . && cmake --build build --target liteseq")
+         (projectile-project-run-cmd . "./build/liteseq")
+         (eval . (setq cmake-ide-build-dir (expand-file-name "build" (projectile-project-root))))
+         (eval . (setq cmake-ide-project-dir (projectile-project-root)))
+         (eval . (setq cmake-ide-flags-c++ '("-Wall" "-Wextra" "-Wpedantic" "-std=c++20")))
+         (eval . (setq cmake-ide-flags-c '("-Wall" "-Wextra" "-Wpedantic" "-std=c23")))
+         (eval . (setq cmake-ide-cmake-opts "-DCMAKE_BUILD_TYPE=Debug -DUSE_SANITIZER=address -DCMAKE_EXPORT_COMPILE_COMMANDS=ON")))))

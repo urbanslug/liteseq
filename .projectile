@@ -1,0 +1,7 @@
+-/build
+-/bin
+-/.cache
+-*.o
+-*~
+-*fa
+-*fasta
