@@ -58,6 +58,9 @@ extern const unsigned int MAX_COMPRESSED_RUN;
 #define GFA_P_LINE 'P' // path line
 #define GFA_H_LINE 'H' // header line
 
+// GFA v1.1
+#define GFA_W_LINE 'W' // walk line
+
 #define EXPECTED_P_LINE_TOKENS 3 // the number of tokens expected in a P line
 #define EXPECTED_L_LINE_TOKENS 4 // the number of tokens expected in a L line
 #define EXPECTED_S_LINE_TOKENS 3 // the number of tokens expected in a S line

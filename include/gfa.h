@@ -33,6 +33,26 @@ typedef enum {
   REVERSE  // other name is negative
 } strand_e;
 
+typedef enum {
+  GFA_1_0,
+  GFA_1_1,
+  UNSUPPORTED
+} gfa_versions_e;
+
+#define GFA_V_1_0 "VN:Z:1.0"
+#define GFA_V_1_1 "VN:Z:1.1"
+
+/* lookup table tying strings → enum */
+static const struct {
+  const char *tag;
+  gfa_versions_e version;
+} gfa_version_map[] = {
+    {GFA_V_1_0, GFA_1_0},
+    {GFA_V_1_1, GFA_1_1},
+};
+static const size_t gfa_version_map_len =
+    sizeof(gfa_version_map) / sizeof(*gfa_version_map);
+
 /*
  * Structs
  * --------
@@ -91,15 +111,19 @@ typedef struct {
   line *s_lines;
   line *l_lines;
   line *p_lines;
+  line *w_lines;
 
   vtx *v;  // the array of vertices
   edge *e; // the array of edges
   ref *refs; // the reference sequences
 
+  gfa_versions_e version; // version
+
   /* number of S, L and P lines in the file */
   idx_t s_line_count; // TODO replace with vtx count
   idx_t l_line_count; // TODO replace with edge count
   idx_t p_line_count; // TODO replace with ref count
+  idx_t walk_count;
 } gfa_props;
 
 

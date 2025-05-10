@@ -97,6 +97,37 @@ int tokenise(const char *str, size_t line_length, size_t expected_token_count, c
  * -------------------
  */
 
+status_t set_version(char *curr_char, char *newline, gfa_props *g) {
+  idx_t line_length = (idx_t)(newline - curr_char);
+  char *tokens[MAX_TOKENS] = {NULL};
+  int token_count;
+  const char *version_str = NULL;
+  status_t result = -1; // assume failure
+
+  token_count = tokenise(curr_char, line_length, EXPECTED_H_LINE_TOKENS, tokens);
+  // TODO: check if token_count is -1
+  version_str = tokens[1];
+
+  // TODO: is this better than a chain of if statements?
+  g->version = UNSUPPORTED;
+  for (size_t i = 0; i < gfa_version_map_len; ++i) {
+    if (strcmp(version_str, gfa_version_map[i].tag) == 0) {
+      g->version = gfa_version_map[i].version;
+      break;
+    }
+  }
+
+  if (g->version == UNSUPPORTED) {
+    fprintf(stderr, "[liteseq::gfa] Unsupported GFA version: %s\n", version_str);
+  }
+  else {
+    result = 0; // success
+  }
+
+  tokens_free(tokens);
+  return result;
+}
+
 /**
  * Process memory mapped file line by line and count the number of S, L, and P lines
  *
@@ -130,10 +161,17 @@ status_t count_lines(gfa_props *g) {
     case GFA_P_LINE:
       g->p_line_count++;
       break;
+    case GFA_W_LINE:
+      g->walk_count++;
+      break;
     case GFA_H_LINE:
+      if (set_version(curr_char, newline, g) != 0) {
+        fprintf(stderr, "[liteseq::gfa] Failed to set GFA version\n");
+        return -1;
+      }
       break;
     default: // unsupported line type
-      fprintf(stderr, "Unsupported line type: [%c] on line: [%d]\n", curr_char[0], line_count);
+      fprintf(stderr, "[liteseq::gfa] Unsupported line type: [%c] on line: [%d]\n", curr_char[0], line_count);
       return -2;
     }
 
@@ -176,6 +214,7 @@ status_t index_lines(gfa_props *gfa) {
   idx_t s_idx = 0;
   idx_t l_idx = 0;
   idx_t p_idx = 0;
+  idx_t w_idx = 0;
   idx_t line_count = 0; // reset line count
   char *curr_char = gfa->start;  // reset the current character
 
@@ -187,6 +226,7 @@ status_t index_lines(gfa_props *gfa) {
   gfa->s_lines = (line *)malloc(gfa->s_line_count * sizeof(line));
   gfa->l_lines = (line *)malloc(gfa->l_line_count * sizeof(line));
   gfa->p_lines = (line *)malloc(gfa->p_line_count * sizeof(line));
+  gfa->w_lines = (line *)malloc(gfa->walk_count * sizeof(line));
 
   if (!gfa->s_lines || !gfa->l_lines || !gfa->p_lines) {
     perror("Failed to allocate memory for line indices");
@@ -210,6 +250,9 @@ status_t index_lines(gfa_props *gfa) {
       break;
     case GFA_L_LINE:
       gfa->l_lines[l_idx++] = curr_line;
+      break;
+    case GFA_W_LINE:
+      gfa->w_lines[w_idx++] = curr_line;
       break;
     case GFA_P_LINE:
       index_p_line(gfa, curr_char, line_length, curr_line, &p_idx);
@@ -511,9 +554,11 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs, idx_t
   p->inc_refs = inc_refs;
 
   p->ref_count = ref_count;
-  p->ref_names = (char **)malloc(ref_count * sizeof(char *));
-  for (idx_t i = 0; i < ref_count; i++) {
-    p->ref_names[i] = strdup(refs[i]);
+  if (p->inc_refs) {
+    p->ref_names = (char **)malloc(ref_count * sizeof(char *));
+    for (idx_t i = 0; i < ref_count; i++) {
+      p->ref_names[i] = strdup(refs[i]);
+    }
   }
 
   p->start = NULL;
@@ -521,9 +566,11 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs, idx_t
   p->l_lines= NULL;
   p->s_lines = NULL;
   p->p_lines = NULL;
+  p->w_lines = NULL;
   p->s_line_count = 0;
   p->l_line_count = 0;
   p->p_line_count = 0;
+  p->walk_count = 0;
 
   p->v = NULL;
   p->e = NULL;
@@ -536,6 +583,8 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs, idx_t
 }
 
 gfa_props *gfa_new(const gfa_config *conf) {
+
+  // set up the config
   const char *fp = conf->fp;
   bool inc_vtx_labels = conf->inc_vtx_labels;
   bool inc_refs = conf->inc_refs;
@@ -559,7 +608,12 @@ gfa_props *gfa_new(const gfa_config *conf) {
   p->end = end;
   p->file_size = file_size;
 
-  count_lines(p);
+  p->status = count_lines(p);
+  if (p->status != 0) {
+    fprintf(stderr, "Error: Failed to count lines in GFA file\n");
+    return p;
+  }
+
   if (p->s_line_count == 0 && p->l_line_count == 0 && p->p_line_count == 0) {
     return p; // TODO: should this be an error?
   }
@@ -604,6 +658,7 @@ void gfa_free(gfa_props *gfa) {
   if (gfa->s_lines) { free(gfa->s_lines); }
   if (gfa->l_lines) { free(gfa->l_lines); }
   if (gfa->p_lines) { free(gfa->p_lines); }
+  if (gfa->w_lines) { free(gfa->w_lines); }
 
   free(gfa);
 }
