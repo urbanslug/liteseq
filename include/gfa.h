@@ -100,6 +100,7 @@ typedef struct {
 typedef struct {
   bool inc_vtx_labels;
   bool inc_refs;
+  bool read_all_refs;
   idx_t ref_count; // unify ref count and P line count
   char **ref_names;
 
@@ -131,6 +132,7 @@ typedef struct {
   const char* fp;
   bool inc_vtx_labels;
   bool inc_refs;
+  bool read_all_refs;
   idx_t ref_count; // unify ref count and P line count
   const char **ref_names;
 } gfa_config;

@@ -6,8 +6,8 @@
 #include "../include/gfa.h"
 
 int main() {
-  // const char *fp = "./test_data/LPA.gfa";
-  const char *fp = "./test_data/gfa_with_w_lines.gfa";
+  const char *fp = "./test_data/LPA.gfa";
+  //const char *fp = "./test_data/gfa_with_w_lines.gfa";
   const char *ref1 = "chm13__LPA__tig00000001";
   const char *ref2 = "HG002__LPA__tig00000001";
   idx_t ref_count = 2;
@@ -29,7 +29,14 @@ int main() {
     .ref_names = refs
   };
 
-  gfa_props *gfa = gfa_new(&conf_a);
+  gfa_config conf_c = {.fp = fp,
+                       .inc_vtx_labels = false,
+                       .inc_refs = true,
+                       .read_all_refs = true,
+                       .ref_count = 0,
+                       .ref_names = NULL};
+
+  gfa_props *gfa = gfa_new(&conf_c);
 
   if(gfa->status != 0) {
     printf("GFA parsing failed. Status: %d\n", gfa->status);

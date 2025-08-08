@@ -200,13 +200,21 @@ void index_p_line(gfa_props *gfa, char *curr_char, idx_t line_length, line curr_
   token_count = tokenise(curr_char, line_length, EXPECTED_P_LINE_TOKENS, tokens);
   path_name = tokens[1];
 
-  for (idx_t i = 0; i < gfa->ref_count; i++) {
-    /*  0 if the strings are equal */
-    if (strcmp(gfa->ref_names[i], path_name) == 0) {
-      gfa->p_lines[(*p_idx)++] = curr_line;
-      break;
+  if (gfa->read_all_refs) {
+    gfa->p_lines[(*p_idx)++] = curr_line;
+  }
+  else {
+    for (idx_t i = 0; i < gfa->ref_count; i++) {
+      /*  0 if the strings are equal */
+      if (strcmp(gfa->ref_names[i], path_name) == 0) {
+        gfa->p_lines[(*p_idx)++] = curr_line;
+        break;
+      }
+
     }
   }
+
+
   tokens_free(tokens);
 }
 
@@ -547,17 +555,21 @@ status_t preallocate_gfa(gfa_props *p) {
   return 0;
 }
 
-gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs, idx_t ref_count ) {
+gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs,
+                    idx_t ref_count, bool read_all_refs ) {
   gfa_props *p = (gfa_props *)malloc(sizeof(gfa_props));
 
   p->inc_vtx_labels = inc_vtx_labels;
   p->inc_refs = inc_refs;
+  p->read_all_refs = read_all_refs;
 
-  p->ref_count = ref_count;
-  if (p->inc_refs) {
-    p->ref_names = (char **)malloc(ref_count * sizeof(char *));
-    for (idx_t i = 0; i < ref_count; i++) {
-      p->ref_names[i] = strdup(refs[i]);
+  if (!p->read_all_refs && p->inc_refs) {
+    p->ref_count = ref_count;
+    if (p->inc_refs && p->ref_count > 0) {
+      p->ref_names = (char **)malloc(ref_count * sizeof(char *));
+      for (idx_t i = 0; i < ref_count; i++) {
+        p->ref_names[i] = strdup(refs[i]);
+      }
     }
   }
 
@@ -582,15 +594,17 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs, idx_t
   return p;
 }
 
+
 gfa_props *gfa_new(const gfa_config *conf) {
 
   // set up the config
   const char *fp = conf->fp;
   bool inc_vtx_labels = conf->inc_vtx_labels;
   bool inc_refs = conf->inc_refs;
+  bool read_all_refs = conf->read_all_refs;
   idx_t ref_count = conf->ref_count;
   const char **refs = conf->ref_names;
-  gfa_props *p = init_gfa(inc_vtx_labels, inc_refs, refs, ref_count);
+  gfa_props *p = init_gfa(inc_vtx_labels, inc_refs, refs, ref_count, read_all_refs);
 
   char *mapped; // pointer to the start of the memory mapped file
   char *end; // pointer to the end of the memory mapped file
@@ -612,6 +626,13 @@ gfa_props *gfa_new(const gfa_config *conf) {
   if (p->status != 0) {
     fprintf(stderr, "Error: Failed to count lines in GFA file\n");
     return p;
+  }
+
+
+  if (p->read_all_refs) {
+    p->ref_count = p->p_line_count;
+    //p->ref_names = (char **)malloc(p->p_line_count * sizeof(char *));
+    //printf("ref count: %d\n", p->ref_count);
   }
 
   if (p->s_line_count == 0 && p->l_line_count == 0 && p->p_line_count == 0) {
@@ -641,12 +662,14 @@ void gfa_free(gfa_props *gfa) {
   if (gfa->e) { free(gfa->e); }
 
   if (gfa->refs) {
-    for (idx_t i = 0; i < gfa->ref_count; i++) {
-      if (gfa->ref_names[i]) {
-        free(gfa->ref_names[i]);
+    if (!gfa->read_all_refs && gfa->inc_refs) {
+      for (idx_t i = 0; i < gfa->ref_count; i++) {
+        if (gfa->ref_names[i]) {
+          free(gfa->ref_names[i]);
+        }
       }
+      free(gfa->ref_names);
     }
-    free(gfa->ref_names);
 
     for (idx_t i = 0; i < gfa->ref_count; i++) {
       free(gfa->refs[i].name);
