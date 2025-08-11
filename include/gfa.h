@@ -143,6 +143,25 @@ void gfa_free(gfa_props *c);
 
 #ifdef __cplusplus
 
+// C++-only extension: constructor inside the same struct
+// C++ wrapper for gfa_config specifically C++11 to C++20 which lack designated
+// initializers https://cplusplus.com/forum/general/285267/
+struct gfa_config_cpp : gfa_config {
+  gfa_config_cpp(const char *fp_,
+                 bool inc_vtx_labels_ = false,
+                 bool inc_refs_ = false,
+                 bool read_all_refs_ = false,
+                 idx_t ref_count_ = 0,
+                 const char **ref_names_ = nullptr) {
+    fp = fp_;
+    inc_vtx_labels = inc_vtx_labels_;
+    inc_refs = inc_refs_;
+    read_all_refs = read_all_refs_;
+    ref_count = ref_count_;
+    ref_names = ref_names_;
+  }
+};
+
 } // liteseq
 
 }
