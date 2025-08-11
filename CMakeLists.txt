@@ -55,3 +55,10 @@ add_executable(liteseq ${SOURCES})
 
 # Link the library to the executable
 target_link_libraries(liteseq PRIVATE liteseqlib Threads::Threads)
+
+# Include directories for the library
+# expose the given directories to anything linking against liteseqlib
+target_include_directories(liteseqlib
+  PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
