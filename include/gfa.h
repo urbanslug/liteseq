@@ -2,7 +2,6 @@
 #define LQ_GFA_H
 
 #include <pthread.h> // multithreading
-#include <threads.h> // for pthreads
 
 #include "./io.h"
 #include "./types.h"
@@ -51,7 +50,7 @@ static const struct {
     {GFA_V_1_1, GFA_1_1},
 };
 static const size_t gfa_version_map_len =
-    sizeof(gfa_version_map) / sizeof(*gfa_version_map);
+  sizeof(gfa_version_map) / sizeof(*gfa_version_map);
 
 /*
  * Structs
@@ -98,11 +97,10 @@ typedef struct {
 // for internal use
 // TODO: rename to gfa_meta
 typedef struct {
+  const char *fp; // file path
+
   bool inc_vtx_labels;
   bool inc_refs;
-  bool read_all_refs;
-  idx_t ref_count; // unify ref count and P line count
-  char **ref_names;
 
   char *start; // pointer to the start of the memory mapped file
   char *end; // pointer to the end of the memory mapped file
@@ -111,8 +109,12 @@ typedef struct {
 
   line *s_lines;
   line *l_lines;
+
   line *p_lines;
   line *w_lines;
+
+  // is w the number of W lines in GFA 1.1
+  idx_t ref_count;
 
   vtx *v;  // the array of vertices
   edge *e; // the array of edges
@@ -124,7 +126,7 @@ typedef struct {
   idx_t s_line_count; // TODO replace with vtx count
   idx_t l_line_count; // TODO replace with edge count
   idx_t p_line_count; // TODO replace with ref count
-  idx_t walk_count;
+  idx_t w_line_count;
 } gfa_props;
 
 
@@ -132,9 +134,6 @@ typedef struct {
   const char* fp;
   bool inc_vtx_labels;
   bool inc_refs;
-  bool read_all_refs;
-  idx_t ref_count; // unify ref count and P line count
-  const char **ref_names;
 } gfa_config;
 
 gfa_props *gfa_new(const gfa_config *conf);
@@ -149,16 +148,10 @@ void gfa_free(gfa_props *c);
 struct gfa_config_cpp : gfa_config {
   gfa_config_cpp(const char *fp_,
                  bool inc_vtx_labels_ = false,
-                 bool inc_refs_ = false,
-                 bool read_all_refs_ = false,
-                 idx_t ref_count_ = 0,
-                 const char **ref_names_ = nullptr) {
+                 bool inc_refs_ = false) {
     fp = fp_;
     inc_vtx_labels = inc_vtx_labels_;
     inc_refs = inc_refs_;
-    read_all_refs = read_all_refs_;
-    ref_count = ref_count_;
-    ref_names = ref_names_;
   }
 };
 

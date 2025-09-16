@@ -15,16 +15,12 @@ option(LITESEQ_BUILD_EXAMPLE "Build the liteseq CLI binary" OFF)
 
 # === Platform & Toolchain Configuration ===
 
-# Linker options for sanitizers
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${SANITIZER_FLAGS}")
-
 # Directories
-set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+set(EXAMPLES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/examples)
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 
 # --- liteseq Library ---
-
 
 # Add the library
 add_library(liteseq
@@ -78,26 +74,46 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 
+# Linker options for sanitizers
+# Linker options for sanitizers
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # Default to ON in Debug mode, but allow manual override
+  option(USE_SANITIZER "Enable sanitizers (ON by default in Debug mode)" ON)
+else()
+  # Default to OFF in non-Debug modes, and allow manual override
+  option(USE_SANITIZER "Enable sanitizers (ON by default in Debug mode)" OFF)
+endif()
 
-# Sanitizers are only enabled in Debug mode to avoid performance overhead in Release builds.
-include(sanitizers.cmake)
+# Include sanitizers only if USE_SANITIZER is ON
+if (USE_SANITIZER)
+  include(sanitizers.cmake)
+endif()
 
-# Find the threading package. On Linux, for instance, this will
-# link with pthread, and add -pthread flags automatically.
-find_package(Threads REQUIRED)
-
-
+# --- Threading Configuration ---
+if(APPLE)  # true for macOS/iOS simulators, etc.
+  find_library(DISPATCH_LIB NAMES dispatch)
+  if(DISPATCH_LIB)
+    message(STATUS "Using Grand Central Dispatch (GCD) for threading on Apple platforms.")
+    target_link_libraries(liteseq PRIVATE "${DISPATCH_LIB}")
+  else()
+    message(FATAL_ERROR "Grand Central Dispatch (libdispatch) not found.")
+  endif()
+else()
+  find_package(Threads REQUIRED)
+  message(STATUS "Using pthreads for threading on non-Apple platforms.")
+  target_link_libraries(liteseq PRIVATE Threads::Threads)
+endif()
 
 # Source files for binary
 set(SOURCES
-    ${SRC_DIR}/main.c
+    ${EXAMPLES_DIR}/example.c
 )
 
-if(BUILD_LITESEQ_EXAMPLES)
-# Add the executable
-add_executable(liteseq-example ${SOURCES})
-# Link the library to the executable
-target_link_libraries(liteseq-example PRIVATE liteseq Threads::Threads)
+if(LITESEQ_BUILD_EXAMPLE)
+  # Add the executable
+  add_executable(liteseq-example ${SOURCES})
+  # Link the library to the executable
+  target_link_libraries(liteseq-example PRIVATE liteseq)
 endif()
 
 # Include directories for the library

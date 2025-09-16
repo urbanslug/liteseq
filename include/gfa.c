@@ -1,4 +1,9 @@
-#define _GNU_SOURCE // Required for strtok_r and memchr
+#ifdef __linux__
+#define _GNU_SOURCE
+#elif defined(_WIN32)
+#define strtok_r strtok_s strndup strdup
+#endif
+
 #include "./gfa.h"
 
 /*
@@ -134,8 +139,8 @@ status_t set_version(char *curr_char, char *newline, gfa_props *g) {
  * @param [in] gfa_props gfa metadata
  * @return 0 on success, -1 on failure
  */
-status_t count_lines(gfa_props *g) {
-  idx_t line_count = 0;
+status_t analyse_gfa_structure(gfa_props *g) {
+  idx_t curr_line = 0;
   g->s_line_count = 0;
   g->l_line_count = 0;
   g->p_line_count = 0;
@@ -149,8 +154,6 @@ status_t count_lines(gfa_props *g) {
       newline = g->end;
     }
 
-    line_count++;
-
     switch (curr_char[0]) {
     case GFA_S_LINE:
       g->s_line_count++;
@@ -162,7 +165,7 @@ status_t count_lines(gfa_props *g) {
       g->p_line_count++;
       break;
     case GFA_W_LINE:
-      g->walk_count++;
+      g->w_line_count++;
       break;
     case GFA_H_LINE:
       if (set_version(curr_char, newline, g) != 0) {
@@ -171,52 +174,32 @@ status_t count_lines(gfa_props *g) {
       }
       break;
     default: // unsupported line type
-      fprintf(stderr, "[liteseq::gfa] Unsupported line type: [%c] on line: [%d]\n", curr_char[0], line_count);
+      fprintf(stderr, "[liteseq::gfa] Unsupported line type: [%c] on line: [%d]\n", curr_char[0], curr_line);
       return -2;
     }
 
     // Move to the next line
     curr_char = newline + 1; // Skip the newline character
+    curr_line++;
+  }
+
+  if (g->inc_refs) {
+    switch (g->version) {
+    case GFA_1_0:
+      g->ref_count = g->p_line_count;
+      break;
+    case GFA_1_1:
+      g->ref_count = g->w_line_count;
+      break;
+    default:
+      fprintf( stderr, "[liteseq::gfa] Unsupported GFA version for reference parsing  \n");
+      return -3;
+    }
   }
 
   return 0;
 }
 
-// TODO: make this inline without breaking C++ or move the vars to index_lines
-void index_p_line(gfa_props *gfa, char *curr_char, idx_t line_length, line curr_line, idx_t *p_idx) {
-  if (!gfa->inc_refs) {
-    return;
-  }
-
-  if (gfa->ref_count == 0) {
-    gfa->p_lines[(*p_idx)++] = curr_line;
-    return;
-  }
-
-  char *tokens[MAX_TOKENS] = {NULL};
-  int token_count;
-  const char *path_name;
-
-  token_count = tokenise(curr_char, line_length, EXPECTED_P_LINE_TOKENS, tokens);
-  path_name = tokens[1];
-
-  if (gfa->read_all_refs) {
-    gfa->p_lines[(*p_idx)++] = curr_line;
-  }
-  else {
-    for (idx_t i = 0; i < gfa->ref_count; i++) {
-      /*  0 if the strings are equal */
-      if (strcmp(gfa->ref_names[i], path_name) == 0) {
-        gfa->p_lines[(*p_idx)++] = curr_line;
-        break;
-      }
-
-    }
-  }
-
-
-  tokens_free(tokens);
-}
 
 status_t index_lines(gfa_props *gfa) {
   idx_t s_idx = 0;
@@ -234,7 +217,7 @@ status_t index_lines(gfa_props *gfa) {
   gfa->s_lines = (line *)malloc(gfa->s_line_count * sizeof(line));
   gfa->l_lines = (line *)malloc(gfa->l_line_count * sizeof(line));
   gfa->p_lines = (line *)malloc(gfa->p_line_count * sizeof(line));
-  gfa->w_lines = (line *)malloc(gfa->walk_count * sizeof(line));
+  gfa->w_lines = (line *)malloc(gfa->w_line_count * sizeof(line));
 
   if (!gfa->s_lines || !gfa->l_lines || !gfa->p_lines) {
     perror("Failed to allocate memory for line indices");
@@ -263,7 +246,7 @@ status_t index_lines(gfa_props *gfa) {
       gfa->w_lines[w_idx++] = curr_line;
       break;
     case GFA_P_LINE:
-      index_p_line(gfa, curr_char, line_length, curr_line, &p_idx);
+      gfa->p_lines[p_idx++] = curr_line;
       break;
     case GFA_H_LINE:
       line_count++;
@@ -494,7 +477,6 @@ status_t populate_gfa(gfa_props *gfa) {
   /* Prepare arguments for threads */
   void *args_s[] = {(void *)gfa->v, gfa->s_lines, &gfa->s_line_count, &gfa->inc_vtx_labels};
   void *args_l[] = {(void *)gfa->e, gfa->l_lines, &gfa->l_line_count, &gfa->inc_vtx_labels};
-  void *args_p[] = {(void *)gfa->refs, gfa->p_lines, &gfa->ref_count, &gfa->inc_refs};
 
   /* launch threads */
   if (pthread_create(&thread_s, NULL, thread_handle_s_lines, args_s) != 0) {
@@ -505,8 +487,12 @@ status_t populate_gfa(gfa_props *gfa) {
     return -1; // Failed to create thread for L lines
   }
 
-  if (gfa->inc_refs && pthread_create(&thread_p, NULL, thread_handle_p_lines, args_p) != 0) {
-    return -1; // Failed to create thread for P lines
+  if (gfa->inc_refs) {
+    line *ref_lines = gfa->version == GFA_1_0 ? gfa->p_lines : gfa->w_lines;
+    void *args_p[] = {(void *)gfa->refs, ref_lines, &gfa->ref_count, &gfa->inc_refs};
+    if (pthread_create(&thread_p, NULL, thread_handle_p_lines, args_p) != 0) {
+      return -1; // Failed to create thread for P lines
+    }
   }
 
   /* Wait for threads to finish */
@@ -555,23 +541,12 @@ status_t preallocate_gfa(gfa_props *p) {
   return 0;
 }
 
-gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs,
-                    idx_t ref_count, bool read_all_refs ) {
+gfa_props *init_gfa(const gfa_config *conf) {
   gfa_props *p = (gfa_props *)malloc(sizeof(gfa_props));
 
-  p->inc_vtx_labels = inc_vtx_labels;
-  p->inc_refs = inc_refs;
-  p->read_all_refs = read_all_refs;
-
-  if (!p->read_all_refs && p->inc_refs) {
-    p->ref_count = ref_count;
-    if (p->inc_refs && p->ref_count > 0) {
-      p->ref_names = (char **)malloc(ref_count * sizeof(char *));
-      for (idx_t i = 0; i < ref_count; i++) {
-        p->ref_names[i] = strdup(refs[i]);
-      }
-    }
-  }
+  p->fp = conf->fp;
+  p->inc_vtx_labels = conf->inc_vtx_labels;
+  p->inc_refs = conf->inc_refs;
 
   p->start = NULL;
   p->end = NULL;
@@ -579,10 +554,13 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs,
   p->s_lines = NULL;
   p->p_lines = NULL;
   p->w_lines = NULL;
+
   p->s_line_count = 0;
   p->l_line_count = 0;
   p->p_line_count = 0;
-  p->walk_count = 0;
+  p->w_line_count = 0;
+
+  p->ref_count = 0;
 
   p->v = NULL;
   p->e = NULL;
@@ -594,17 +572,10 @@ gfa_props *init_gfa(bool inc_vtx_labels, bool inc_refs, const char **refs,
   return p;
 }
 
-
 gfa_props *gfa_new(const gfa_config *conf) {
 
   // set up the config
-  const char *fp = conf->fp;
-  bool inc_vtx_labels = conf->inc_vtx_labels;
-  bool inc_refs = conf->inc_refs;
-  bool read_all_refs = conf->read_all_refs;
-  idx_t ref_count = conf->ref_count;
-  const char **refs = conf->ref_names;
-  gfa_props *p = init_gfa(inc_vtx_labels, inc_refs, refs, ref_count, read_all_refs);
+  gfa_props *p = init_gfa(conf);
 
   char *mapped; // pointer to the start of the memory mapped file
   char *end; // pointer to the end of the memory mapped file
@@ -612,7 +583,7 @@ gfa_props *gfa_new(const gfa_config *conf) {
 
   p->status = -1; // status of a given operation
 
-  open_mmap(fp, &mapped, &file_size);
+  open_mmap(p->fp, &mapped, &file_size);
   if (mapped == NULL) { // Failed to mmap file
     return p;
   }
@@ -622,21 +593,15 @@ gfa_props *gfa_new(const gfa_config *conf) {
   p->end = end;
   p->file_size = file_size;
 
-  p->status = count_lines(p);
+  p->status = analyse_gfa_structure(p);
   if (p->status != 0) {
-    fprintf(stderr, "Error: Failed to count lines in GFA file\n");
+    fprintf(stderr, "Error: GFA file structure analysis failed\n");
     return p;
   }
 
-
-  if (p->read_all_refs) {
-    p->ref_count = p->p_line_count;
-    //p->ref_names = (char **)malloc(p->p_line_count * sizeof(char *));
-    //printf("ref count: %d\n", p->ref_count);
-  }
-
   if (p->s_line_count == 0 && p->l_line_count == 0 && p->p_line_count == 0) {
-    return p; // TODO: should this be an error?
+    fprintf(stderr, "Error: GFA has no vertices edges or paths\n");
+    return p;
   }
 
   index_lines(p);
@@ -662,15 +627,6 @@ void gfa_free(gfa_props *gfa) {
   if (gfa->e) { free(gfa->e); }
 
   if (gfa->refs) {
-    if (!gfa->read_all_refs && gfa->inc_refs) {
-      for (idx_t i = 0; i < gfa->ref_count; i++) {
-        if (gfa->ref_names[i]) {
-          free(gfa->ref_names[i]);
-        }
-      }
-      free(gfa->ref_names);
-    }
-
     for (idx_t i = 0; i < gfa->ref_count; i++) {
       free(gfa->refs[i].name);
       free(gfa->refs[i].steps);

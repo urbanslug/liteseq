@@ -1,0 +1,38 @@
+name: C++17 Build (CMake, macOS)
+
+on:
+  # branch glob syntax https://stackoverflow.com/a/57903434
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+
+    name: Build ${{ matrix.build_type }}
+
+    env:
+      CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build -D LITESEQ_BUILD_EXAMPLE=ON -DCMAKE_BUILD_TYPE=${{ env.CMAKE_BUILD_TYPE }}
+
+      - name: Build
+        run: |
+          cmake --build ${{ github.workspace }}/build --config ${{ env.CMAKE_BUILD_TYPE }}
+
+      - name: RunExample
+        run: |
+          ./build/liteseq-example
+
