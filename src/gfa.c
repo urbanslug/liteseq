@@ -4,7 +4,7 @@
 #define strtok_r strtok_s strndup strdup
 #endif
 
-#include "./gfa.h"
+#include "../include/liteseq/gfa.h"
 
 /*
  * Utility Functions
@@ -17,7 +17,7 @@
  * @param [in] str the path string
  * @return the number of steps in the path
  */
-size_t count_steps(const char *str) {
+size_t count_steps_old(const char *str) {
   size_t steps = 0;
   const char *c = str;
   for(; *c; c++) {
@@ -390,9 +390,7 @@ status_t handle_p(const char *p_line, size_t line_length, size_t idx, char **tok
   char *path_name = tokens[1];
   char *path_str = tokens[2];
 
-  idx_t step_count = count_steps(path_str);
-
-  //paths[idx] = (ref){.name = NULL, .steps = NULL};
+  idx_t step_count = count_steps_old(path_str);
 
   step *steps = (step *)malloc(step_count * sizeof(step));
 
@@ -437,11 +435,9 @@ void *thread_handle_l_lines(void *arg) {
   void *edges = args[0];
   line *line_positions = (line *)args[1];
   idx_t line_count = *((idx_t *)args[2]);
-  //bool cfg = args[3];
 
   // temporary storage for the tokens extracted from a given line
   char *tokens[MAX_TOKENS] = {NULL};
-
 
   for (idx_t i = 0; i < line_count; i++) {
     handle_l(line_positions[i].start, line_positions[i].len, i, tokens, false, edges);

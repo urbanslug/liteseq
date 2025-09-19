@@ -15,7 +15,7 @@ A variation graph implementation that takes [GFA](https://gfa-spec.github.io/GFA
 
 ## Configuration
 
-To ensure that we parse only the essential subset of GFA data, liteseq uses a 
+To ensure that we parse only the essential subset of GFA data, liteseq uses a
 `gfa_config` struct to determine which graph properties to read from the GFA file.
 The fields of the `gfa_config` struct are described in the table below.
 

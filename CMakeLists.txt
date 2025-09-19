@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 # Project name, version and languages
-project(liteseq LANGUAGES C)
+project(liteseq LANGUAGES C CXX)
 
 # === BUILD OPTIONS ===
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
@@ -18,22 +18,27 @@ option(LITESEQ_BUILD_EXAMPLE "Build the liteseq CLI binary" OFF)
 # Directories
 set(EXAMPLES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/examples)
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(SRC_INTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/internal)
+set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
 # --- liteseq Library ---
 
 # Add the library
 add_library(liteseq
-  ${INCLUDE_DIR}/types.c
-  ${INCLUDE_DIR}/utils.c
-  ${INCLUDE_DIR}/gfa.c
-  ${INCLUDE_DIR}/io.c
+  ${SRC_INTERNAL_DIR}/lq_types.c
+  ${SRC_INTERNAL_DIR}/lq_utils.c
+  ${SRC_INTERNAL_DIR}/lq_io.c
+  ${SRC_DIR}/gfa.c
+  ${SRC_DIR}/refs.c
 )
 
 # C standard & basic props
 set_target_properties(liteseq PROPERTIES
   C_STANDARD 17
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
   C_EXTENSIONS OFF
 )
 
@@ -86,7 +91,7 @@ endif()
 
 # Include sanitizers only if USE_SANITIZER is ON
 if (USE_SANITIZER)
-  include(sanitizers.cmake)
+  include(cmake/sanitizers.cmake)
 endif()
 
 # --- Threading Configuration ---
@@ -104,21 +109,60 @@ else()
   target_link_libraries(liteseq PRIVATE Threads::Threads)
 endif()
 
-# Source files for binary
-set(SOURCES
-    ${EXAMPLES_DIR}/example.c
+# Include directories for the library
+# expose the given directories to anything linking against liteseqlib
+target_include_directories(liteseq
+  PUBLIC ${INCLUDE_DIR}
+  PRIVATE ${SRC_INTERNAL_DIR}
 )
 
+include(GNUInstallDirs)
+install(TARGETS liteseq
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(DIRECTORY include/liteseq/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/liteseq)
+
+
+# === Tests ===
+
+if (LITESEQ_ENABLE_TESTING)
+  # Add the global TESTING definition
+  add_compile_definitions(TESTING)
+
+  # --- Dependencies ---
+  # Use FetchContent to fetch and build dependencies from GitHub
+  include(FetchContent)
+
+  # GoogleTest
+  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+  # For Windows: Prevent overriding the parent project's compiler/linker settings
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+  FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE  # Add this line
+  )
+  FetchContent_MakeAvailable(googletest)
+
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+
+# === Example Binary ===
 if(LITESEQ_BUILD_EXAMPLE)
+
+  # Source files for binary
+  set(SOURCES
+    ${EXAMPLES_DIR}/example.c
+  )
+
   # Add the executable
   add_executable(liteseq-example ${SOURCES})
   # Link the library to the executable
   target_link_libraries(liteseq-example PRIVATE liteseq)
 endif()
 
-# Include directories for the library
-# expose the given directories to anything linking against liteseqlib
-target_include_directories(liteseq
-  PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)

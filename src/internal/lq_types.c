@@ -1,4 +1,4 @@
-#include "./types.h"
+#include "./lq_types.h"
 
 
 // universal constants

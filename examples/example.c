@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "../include/gfa.h"
+#include <liteseq/gfa.h>
 
 gfa_config gen_config() {
-  const char *fp = "./test_data/LPA.gfa";
+  const char *fp = "./tests/data/LPA.gfa";
 
   gfa_config conf_a = {
       .fp = fp,

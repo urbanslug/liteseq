@@ -3,10 +3,9 @@
 
 #include <pthread.h> // multithreading
 
-#include "./io.h"
-#include "./types.h"
-#include "./utils.h"
-
+#include "../src/internal/lq_types.h"
+#include "../src/internal/lq_utils.h"
+#include "../src/internal/lq_io.h"
 
 #ifdef __cplusplus
 extern "C" {
