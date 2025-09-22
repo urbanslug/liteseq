@@ -6,6 +6,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../include/liteseq/types.h"
+
+#ifdef __cplusplus
+extern "C" {
+
+namespace liteseq
+{
+
+#endif
+
 /**
  * A 32 bit bitstring where each bit corresponds to a character in the alphabet
  * Bitstring for 'A' to 'Z' (32 bits) which are 26 but padded to 32
@@ -13,12 +23,12 @@
  * 'A' → Bit 0, 'C' → Bit 2, 'G' → Bit 6, 'T' → Bit 19, 'N' → Bit 13.
  */
 #define ALPHABET_MASK                                                          \
-  ((uint32_t)((1 << ('A' - 'A')) | /* 'A' */                                   \
-              (1 << ('C' - 'A')) | /* 'C' */                                   \
-              (1 << ('G' - 'A')) | /* 'G' */                                   \
-              (1 << ('T' - 'A')) | /* 'T' */                                   \
-              (1 << ('N' - 'A'))   /* 'N' */                                   \
-              ))
+	((uint32_t)((1 << ('A' - 'A')) | /* 'A' */                             \
+		    (1 << ('C' - 'A')) | /* 'C' */                             \
+		    (1 << ('G' - 'A')) | /* 'G' */                             \
+		    (1 << ('T' - 'A')) | /* 'T' */                             \
+		    (1 << ('N' - 'A'))	 /* 'N' */                             \
+		    ))
 
 /**
  * mark a variable as unused
@@ -52,5 +62,32 @@ bool in_alphabet(char c);
  * Map the character to a 3-bit encoding
  */
 uint8_t encodeBase(char base);
+
+struct split_str_params {
+	// input, not mutated.
+	const char *str;	    // input string
+	char delimiter;		    // primary delimiter for split
+	const char *fallbacks;	    // fallback characters for split
+	idx_t fallback_chars_count; // number of fallback characters in fallback
+	idx_t max_splits;	    // the max number of tokens to extract
+
+	// output
+	idx_t tokens_found; // output, number of tokens found, mutated
+	char **tokens;	    // output, only part changed by the function
+	const char *end;    // output, pointer to the end of the last token
+};
+
+/**
+ * Tokenises a line into tokens based on a delimiter.
+ * The tokens are allocated using malloc and should be freed by the caller.
+ * Returns the number of tokens found, or -1 on error.
+ */
+status_t split_str(struct split_str_params *params);
+
+#ifdef __cplusplus
+
+} // liteseq
+} // extern "C"
+#endif
 
 #endif /* LQ_UTILS_H */

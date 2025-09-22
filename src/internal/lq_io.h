@@ -9,7 +9,8 @@
 #include <unistd.h>   // For close
 #include <string.h>   // For memchr and memcpy strtok
 
-#include "./lq_types.h"
+
+#include "../include/liteseq/types.h"
 
 /**
  * Open a file and map it into memory.

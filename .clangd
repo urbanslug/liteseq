@@ -1,0 +1,4 @@
+# .clangd
+FormatStyle: file        # use the .clang-format in this directory tree
+FallbackStyle: LLVM      # used only if no .clang-format is found
+

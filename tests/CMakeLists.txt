@@ -7,6 +7,7 @@ target_link_libraries(test_liteseq
   PRIVATE
   gtest_main
   liteseq  # Replace with your actual target
+  log
 )
 
 # Discover GoogleTest tests

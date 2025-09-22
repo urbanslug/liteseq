@@ -2,7 +2,12 @@
 cmake_minimum_required(VERSION 3.14)
 
 # Project name, version and languages
-project(liteseq LANGUAGES C CXX)
+project(liteseq VERSION 0.0.1 LANGUAGES C CXX)
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/include/liteseq/version.h.in
+  ${CMAKE_BINARY_DIR}/generated/liteseq/version.h
+  @ONLY)
 
 # === BUILD OPTIONS ===
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
@@ -11,7 +16,20 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug, Release)" FORCE)
 endif()
 
-option(LITESEQ_BUILD_EXAMPLE "Build the liteseq CLI binary" OFF)
+# enable or disable testing. OFF by default
+option(LITESEQ_ENABLE_TESTING "Build tests" OFF)
+if (LITESEQ_ENABLE_TESTING)
+  message(STATUS "Testing is enabled.")
+else()
+  message(STATUS "Testing is disabled.")
+endif()
+
+option(LITESEQ_BUILD_EXAMPLE "Build examples" OFF)
+if (LITESEQ_BUILD_EXAMPLE)
+  message(STATUS "Build examples.")
+else()
+  message(STATUS "LQ not building examples disabled.")
+endif()
 
 # === Platform & Toolchain Configuration ===
 
@@ -21,12 +39,12 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(SRC_INTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/internal)
 set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+set(BIN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 # --- liteseq Library ---
 
 # Add the library
 add_library(liteseq
-  ${SRC_INTERNAL_DIR}/lq_types.c
   ${SRC_INTERNAL_DIR}/lq_utils.c
   ${SRC_INTERNAL_DIR}/lq_io.c
   ${SRC_DIR}/gfa.c
@@ -94,6 +112,9 @@ if (USE_SANITIZER)
   include(cmake/sanitizers.cmake)
 endif()
 
+# link math library libm
+target_link_libraries(liteseq PRIVATE m)
+
 # --- Threading Configuration ---
 if(APPLE)  # true for macOS/iOS simulators, etc.
   find_library(DISPATCH_LIB NAMES dispatch)
@@ -109,11 +130,47 @@ else()
   target_link_libraries(liteseq PRIVATE Threads::Threads)
 endif()
 
+# === Dependencies ===
+include(FetchContent)
+
+# --- log (lightweight logging library) ---
+FetchContent_Declare(
+  log
+  GIT_REPOSITORY https://github.com/urbanslug/log.c.git
+  GIT_TAG        056e99ea0d4dd3c3df07c1ef67e0ecf7059449c3
+)
+
+# Pass options to the log library before fetching/building it
+# Default override the default value of ON
+# Override with -DLOG_FILE_INFO=ON
+set(LOG_FILE_INFO OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(log)
+
+# --- Silence compiler warnings for dependencies ---
+function(silence_warnings target)
+  if(TARGET ${target})
+    get_target_property(type ${target} TYPE)
+    if(type STREQUAL "INTERFACE_LIBRARY")
+      target_compile_options(${target} INTERFACE -w)
+    else()
+      target_compile_options(${target} PRIVATE -w)
+    endif()
+  endif()
+endfunction()
+
+silence_warnings(log)
+
+target_link_libraries(liteseq PRIVATE log)
+
 # Include directories for the library
 # expose the given directories to anything linking against liteseqlib
 target_include_directories(liteseq
-  PUBLIC ${INCLUDE_DIR}
-  PRIVATE ${SRC_INTERNAL_DIR}
+  PUBLIC
+  $<BUILD_INTERFACE:${INCLUDE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE
+  ${SRC_INTERNAL_DIR}
 )
 
 include(GNUInstallDirs)
@@ -124,6 +181,10 @@ install(TARGETS liteseq
 )
 install(DIRECTORY include/liteseq/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/liteseq)
 
+
+message(STATUS "Install include dir: ${CMAKE_INSTALL_INCLUDEDIR}")
+message(STATUS "Install lib dir: ${CMAKE_INSTALL_LIBDIR}")
+message(STATUS "Install bin dir: ${CMAKE_INSTALL_BINDIR}")
 
 # === Tests ===
 
@@ -149,20 +210,33 @@ if (LITESEQ_ENABLE_TESTING)
   FetchContent_MakeAvailable(googletest)
 
   enable_testing()
-  add_subdirectory(tests)
+  add_subdirectory(${TESTS_DIR})
 endif()
 
 # === Example Binary ===
-if(LITESEQ_BUILD_EXAMPLE)
 
+if(LITESEQ_BUILD_EXAMPLE)
   # Source files for binary
   set(SOURCES
     ${EXAMPLES_DIR}/example.c
   )
 
+  # create the BIN_DIR if it doesn't exist
+  file(MAKE_DIRECTORY ${BIN_DIR})
+
   # Add the executable
   add_executable(liteseq-example ${SOURCES})
-  # Link the library to the executable
-  target_link_libraries(liteseq-example PRIVATE liteseq)
-endif()
 
+  # Link the library to the executable
+  target_link_libraries(liteseq-example PRIVATE liteseq log)
+
+  # Set the runtime output directory for the example binary
+  set_target_properties(liteseq-example PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR}
+  )
+
+  # Install the example binary
+  install(TARGETS liteseq-example
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  )
+endif()
