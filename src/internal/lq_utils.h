@@ -77,6 +77,8 @@ struct split_str_params {
 	const char *end;    // output, pointer to the end of the last token
 };
 
+idx_t count_digits(idx_t num);
+
 /**
  * Tokenises a line into tokens based on a delimiter.
  * The tokens are allocated using malloc and should be freed by the caller.

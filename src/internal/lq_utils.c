@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <log.h>
+#include <math.h>
 
 #include "../include/liteseq/types.h"
 #include "./lq_utils.h"
@@ -135,4 +136,11 @@ status_t split_str(struct split_str_params *p)
 	p->end = str;
 
 	return SUCCESS;
+}
+
+idx_t count_digits(idx_t num)
+{
+	if (num == 0)
+		return 1;
+	return (idx_t)log10(num) + 1;
 }

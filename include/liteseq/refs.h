@@ -91,13 +91,16 @@ const enum strand *get_walk_strands(const struct ref *r);
 // fns I want to expose only for testing
 #ifdef TESTING
 /* PanSN */
-struct pansn *try_parse_pansn(const char *name, const char delim);
+struct pansn *try_extract_pansn_from_str(const char *name, const char delim);
 void destroy_pansn(struct pansn **pn);
 
-struct ref_id *alloc_ref_id(char **tokens, idx_t token_count);
+struct ref_id *alloc_ref_id(const char **tokens, idx_t token_count);
 void destroy_ref_id(struct ref_id **r_id);
 struct ref_walk *alloc_ref_walk(idx_t step_count);
 void destroy_ref_walk(struct ref_walk **r_walk);
+
+struct pansn *alloc_pansn(const char **tokens);
+void destroy_pansn(struct pansn **pn);
 
 idx_t tokenize(char *str, const char delim, char **tokens, idx_t token_limit);
 struct ref *alloc_ref(enum gfa_line_prefix line_prefix,

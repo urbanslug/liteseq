@@ -48,7 +48,9 @@ add_library(liteseq
   ${SRC_INTERNAL_DIR}/lq_utils.c
   ${SRC_INTERNAL_DIR}/lq_io.c
   ${SRC_DIR}/gfa.c
-  ${SRC_DIR}/refs.c
+  ${SRC_DIR}/refs/refs.c
+  ${SRC_DIR}/refs/ref_walk.c
+  ${SRC_DIR}/refs/ref_name.c
 )
 
 # C standard & basic props
@@ -136,14 +138,14 @@ include(FetchContent)
 # --- log (lightweight logging library) ---
 FetchContent_Declare(
   log
-  GIT_REPOSITORY https://github.com/urbanslug/log.c.git
-  GIT_TAG        056e99ea0d4dd3c3df07c1ef67e0ecf7059449c3
+  GIT_REPOSITORY https://github.com/urbanslug/log.git
+  GIT_TAG        1b9a72da8e2941c7e6d456e2c1bab8dc20592eda
 )
 
 # Pass options to the log library before fetching/building it
 # Default override the default value of ON
-# Override with -DLOG_FILE_INFO=ON
-set(LOG_FILE_INFO OFF CACHE BOOL "" FORCE)
+# Override with -DLOG_FULL_FILE_NAME=ON
+set(LOG_FULL_FILE_NAME OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(log)
 
 # --- Silence compiler warnings for dependencies ---

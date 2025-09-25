@@ -6,6 +6,10 @@
 
 using namespace liteseq;
 
+const char DELIM = HASH_CHAR;
+#define PANSN_MAX_TOKENS 3
+
+// Pads an initializer_list to a fixed size with NULL_ID
 template <typename T, std::size_t MAX_COLUMNS>
 constexpr std::array<T, MAX_COLUMNS>
 pad_to_max(const std::initializer_list<T> &input)
@@ -26,8 +30,6 @@ pad_to_max(const std::initializer_list<T> &input)
 	return padded;
 }
 
-const char DELIM = HASH_CHAR;
-
 TEST(HapLen, SetsHapLen)
 {
 	const idx_t STEP_COUNT = 5;
@@ -36,7 +38,7 @@ TEST(HapLen, SetsHapLen)
 	// set directly
 	rw->hap_len = 42;
 
-	char *tokens[1] = {(char *)"sample#1#contig"};
+	const char *tokens[1] = {"sample#1#contig"};
 	struct ref_id *r_id = alloc_ref_id(tokens, P_LINE_ID_TOKEN_COUNT);
 
 	struct ref *r = alloc_ref(P_LINE, &rw, &r_id);
@@ -48,6 +50,19 @@ TEST(HapLen, SetsHapLen)
 
 	destroy_ref(&r);
 	ASSERT_EQ(r, nullptr);
+}
+
+TEST(PanSNStruct, AllocAndFree)
+{
+	const char *tokens[PANSN_MAX_TOKENS] = {"sampleA", "0", "contig_5"};
+	struct pansn *pn = alloc_pansn(tokens);
+	ASSERT_NE(pn, nullptr);
+	ASSERT_STREQ(pn->sample_name, "sampleA");
+	ASSERT_EQ(pn->hap_id, 0);
+	ASSERT_STREQ(pn->contig_name, "contig_5");
+
+	destroy_pansn(&pn);
+	ASSERT_EQ(pn, nullptr);
 }
 
 // Demonstrate some basic assertions.
@@ -67,7 +82,7 @@ TEST(ParsePanSNRefId, Valid)
 
 	for (idx_t i = 0; i < N; i++) {
 		// char *name = strdup(names[i]);
-		pansn *pn = try_parse_pansn(names[i], DELIM);
+		pansn *pn = try_extract_pansn_from_str(names[i], DELIM);
 		ASSERT_NE(pn, nullptr);
 		ASSERT_STREQ(pn->sample_name, expected_samples[i]);
 		ASSERT_STREQ(pn->contig_name, expected_contigs[i]);
@@ -89,7 +104,7 @@ TEST(ParsePanSNRefId, Invalid)
 	// expected output: all should fail to parse
 	for (idx_t i = 0; i < N; i++) {
 		char *name = strdup(names[i]);
-		pansn *pn = try_parse_pansn(name, HASH_CHAR);
+		pansn *pn = try_extract_pansn_from_str(name, HASH_CHAR);
 		ASSERT_EQ(pn, nullptr);
 	}
 }
@@ -97,7 +112,7 @@ TEST(ParsePanSNRefId, Invalid)
 TEST(AllocRefIdPLine, ValidPanSN)
 {
 	const char *name = "chm13#0#Chr1";
-	char *tokens[1] = {(char *)name};
+	const char *tokens[1] = {name};
 	struct ref_id *r_id = alloc_ref_id(tokens, P_LINE_ID_TOKEN_COUNT);
 
 	ASSERT_NE(r_id, nullptr);
@@ -105,7 +120,7 @@ TEST(AllocRefIdPLine, ValidPanSN)
 	ASSERT_STREQ(r_id->value.id_value->sample_name, "chm13");
 	ASSERT_STREQ(r_id->value.id_value->contig_name, "Chr1");
 	ASSERT_EQ(r_id->value.id_value->hap_id, 0);
-	ASSERT_STREQ(r_id->tag, name);
+	ASSERT_STREQ(r_id->tag, tokens[0]);
 
 	destroy_ref_id(&r_id);
 	ASSERT_EQ(r_id, nullptr);
@@ -114,7 +129,7 @@ TEST(AllocRefIdPLine, ValidPanSN)
 TEST(AllocRefIdPLine, ValidRaw)
 {
 	const char *name = "chm13__LPA__tig00000001";
-	char *tokens[1] = {(char *)name};
+	const char *tokens[1] = {name};
 	struct ref_id *r_id = alloc_ref_id(tokens, P_LINE_ID_TOKEN_COUNT);
 
 	ASSERT_NE(r_id, nullptr);
@@ -257,7 +272,7 @@ TEST(AllocRef, Valid)
 	const idx_t STEP_COUNT = 5;
 	struct ref_walk *rw = alloc_ref_walk(STEP_COUNT);
 
-	char *tokens[1] = {(char *)"sample#1#contig"};
+	const char *tokens[1] = {"sample#1#contig"};
 	struct ref_id *r_id = alloc_ref_id(tokens, P_LINE_ID_TOKEN_COUNT);
 
 	struct ref *r = alloc_ref(P_LINE, &rw, &r_id);
