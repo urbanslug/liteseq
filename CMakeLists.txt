@@ -48,7 +48,7 @@ add_library(liteseq
   ${SRC_INTERNAL_DIR}/lq_utils.c
   ${SRC_INTERNAL_DIR}/lq_io.c
   ${SRC_DIR}/gfa.c
-  ${SRC_DIR}/refs/refs.c
+  ${SRC_DIR}/refs/ref_impl.c
   ${SRC_DIR}/refs/ref_walk.c
   ${SRC_DIR}/refs/ref_name.c
 )
@@ -82,9 +82,23 @@ set(DEBUG_WARNINGS
   -Wmissing-field-initializers
   -Wunused-local-typedefs
   -Wuninitialized
-  -Wmaybe-uninitialized
   # -Wpadded # Uncomment or gate by compiler if needed
 )
+
+# compiler-specific warnings (check the CMAKE_C_COMPILER_ID)
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  message(STATUS "Configuring warnings for GCC...")
+  list(APPEND DEBUG_WARNINGS
+    -Wunused-but-set-variable
+    -Wmaybe-uninitialized
+  )
+elseif (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+  message(STATUS "Configuring warnings for Clang...")
+  # Add any Clang-specific warnings here (if necessary)
+elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  message(STATUS "Configuring warnings for MSVC... (none configured yet)")
+  # Add MSVC-specific flags here if needed
+endif()
 
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -114,39 +128,8 @@ if (USE_SANITIZER)
   include(cmake/sanitizers.cmake)
 endif()
 
-# link math library libm
-target_link_libraries(liteseq PRIVATE m)
-
-# --- Threading Configuration ---
-if(APPLE)  # true for macOS/iOS simulators, etc.
-  find_library(DISPATCH_LIB NAMES dispatch)
-  if(DISPATCH_LIB)
-    message(STATUS "Using Grand Central Dispatch (GCD) for threading on Apple platforms.")
-    target_link_libraries(liteseq PRIVATE "${DISPATCH_LIB}")
-  else()
-    message(FATAL_ERROR "Grand Central Dispatch (libdispatch) not found.")
-  endif()
-else()
-  find_package(Threads REQUIRED)
-  message(STATUS "Using pthreads for threading on non-Apple platforms.")
-  target_link_libraries(liteseq PRIVATE Threads::Threads)
-endif()
-
-# === Dependencies ===
-include(FetchContent)
-
-# --- log (lightweight logging library) ---
-FetchContent_Declare(
-  log
-  GIT_REPOSITORY https://github.com/urbanslug/log.git
-  GIT_TAG        1b9a72da8e2941c7e6d456e2c1bab8dc20592eda
-)
-
-# Pass options to the log library before fetching/building it
-# Default override the default value of ON
-# Override with -DLOG_FULL_FILE_NAME=ON
-set(LOG_FULL_FILE_NAME OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(log)
+# ============== Dependencies ===================
+include(cmake/deps.cmake)
 
 # --- Silence compiler warnings for dependencies ---
 function(silence_warnings target)
@@ -163,6 +146,52 @@ endfunction()
 silence_warnings(log)
 
 target_link_libraries(liteseq PRIVATE log)
+
+# --- Math Library (libm) ---
+
+message("Looking for math library (libm)...")
+find_library(MATH_LIB m)
+if(MATH_LIB)
+  message(STATUS "Found math library: ${MATH_LIB}")
+  # link math library libm
+  target_link_libraries(liteseq PRIVATE m)
+else()
+  message(FATAL_ERROR "Math library (libm) not found.")
+endif()
+
+# --- Threading Configuration ---
+
+message("Looking for an appropriate threading library...")
+if (APPLE)
+  # Log the start of macOS SDK retrieval
+  message(STATUS "Retrieving macOS SDK path using xcrun...")
+
+  # Get the macOS SDK path dynamically
+  execute_process(
+    COMMAND xcrun --show-sdk-path
+    OUTPUT_VARIABLE MACOSX_SDK_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  # Check if the macOS SDK path was successfully retrieved
+  if (NOT MACOSX_SDK_PATH)
+    message(FATAL_ERROR "Failed to retrieve macOS SDK path. Ensure that Xcode tools are installed and configured.")
+  else()
+    # Log the retrieved macOS SDK path
+    message(STATUS "Using macOS SDK path: ${MACOSX_SDK_PATH}")
+
+    # Add the SDK's /usr/include directory to the CMake include paths
+    message(STATUS "Adding ${MACOSX_SDK_PATH}/usr/include to the include directories.")
+    include_directories(${MACOSX_SDK_PATH}/usr/include)
+  endif()
+endif()
+
+# Find and link the Threads library
+find_package(Threads REQUIRED)
+target_link_libraries(liteseq PRIVATE Threads::Threads)
+
+# Log success if Threads library was linked
+message(STATUS "Threads library linked successfully.")
 
 # Include directories for the library
 # expose the given directories to anything linking against liteseqlib
@@ -193,23 +222,6 @@ message(STATUS "Install bin dir: ${CMAKE_INSTALL_BINDIR}")
 if (LITESEQ_ENABLE_TESTING)
   # Add the global TESTING definition
   add_compile_definitions(TESTING)
-
-  # --- Dependencies ---
-  # Use FetchContent to fetch and build dependencies from GitHub
-  include(FetchContent)
-
-  # GoogleTest
-  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-  # For Windows: Prevent overriding the parent project's compiler/linker settings
-  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-  FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE  # Add this line
-  )
-  FetchContent_MakeAvailable(googletest)
 
   enable_testing()
   add_subdirectory(${TESTS_DIR})

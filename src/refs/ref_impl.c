@@ -6,6 +6,8 @@
 #define strdup _strdup	  // Map strdup to _strdup
 #elif defined(__APPLE__)
 /* On macOS, strndup and strdup exist, but no mappings are needed. */
+#else
+#error "Platform not supported"
 #endif
 
 #include <assert.h>
@@ -15,9 +17,13 @@
 
 #include <string.h>
 
-#include "../include/liteseq/refs.h"
-#include "../include/liteseq/types.h"
-#include "../src/internal/lq_utils.h"
+#include "../../include/liteseq/refs.h"
+#include "../../include/liteseq/types.h"
+#include "../../src/internal/lq_utils.h"
+
+#include "./ref_impl.h"
+#include "./ref_name.h"
+#include "./ref_walk.h"
 
 #define PANSN_ID_PARTS_COUNT 3
 
@@ -36,6 +42,35 @@
 #define PANSN_SAMPLE_COL 1
 #define PANSN_HAP_ID_COL 2
 #define PANSN_CONTIG_NAME_COL 3
+
+struct ref *alloc_ref(enum gfa_line_prefix line_prefix,
+		      struct ref_walk **r_walk, struct ref_id **id)
+{
+	struct ref *r = malloc(sizeof(struct ref));
+	if (!r)
+		return NULL;
+
+	r->line_prefix = line_prefix;
+	r->walk = *r_walk;
+	r->id = *id;
+
+	return r;
+}
+
+void destroy_ref(struct ref **r)
+{
+	if (r == NULL || *r == NULL) {
+		return;
+	}
+
+	destroy_ref_id(&(*r)->id);
+	destroy_ref_walk(&(*r)->walk);
+
+	if (*r != NULL) {
+		free(*r);
+		*r = NULL;
+	}
+}
 
 const char *get_tag(const struct ref *r)
 {
@@ -119,33 +154,35 @@ status_t set_hap_len(struct ref *r, idx_t hap_len)
 	return SUCCESS;
 }
 
-struct ref *alloc_ref(enum gfa_line_prefix line_prefix,
-		      struct ref_walk **r_walk, struct ref_id **id)
+static inline bool is_step_sep(enum gfa_line_prefix line_prefix, const char c)
 {
-	struct ref *r = malloc(sizeof(struct ref));
-	if (!r)
-		return NULL;
-
-	r->line_prefix = line_prefix;
-	r->walk = *r_walk;
-	r->id = *id;
-
-	return r;
+	switch (line_prefix) {
+	case P_LINE:
+		return c == P_LINE_FORWARD_SYMBOL || c == P_LINE_REVERSE_SYMBOL;
+	case W_LINE:
+		return c == W_LINE_FORWARD_SYMBOL || c == W_LINE_REVERSE_SYMBOL;
+	default:
+		log_fatal("Invalid line prefix in is_step_sep");
+		exit(1);
+	}
 }
 
-void destroy_ref(struct ref **r)
+/**
+ * @brief Count the number of steps in a P line path; it is the number
+ * of commas
+ * + 1
+ *
+ * @param [in] str the path string
+ * @return the number of steps in the path
+ */
+idx_t count_steps(enum gfa_line_prefix line_prefix, const char *str)
 {
-	if (r == NULL || *r == NULL) {
-		return;
-	}
+	idx_t steps = 0;
+	for (; *str; str++)
+		if (is_step_sep(line_prefix, *str))
+			steps++;
 
-	destroy_ref_id(&(*r)->id);
-	destroy_ref_walk(&(*r)->walk);
-
-	if (*r != NULL) {
-		free(*r);
-		*r = NULL;
-	}
+	return steps;
 }
 
 struct line_metadata {

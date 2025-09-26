@@ -6,6 +6,8 @@
 #define strdup _strdup	  // Map strdup to _strdup
 #elif defined(__APPLE__)
 /* On macOS, strndup and strdup exist, but no mappings are needed. */
+#else
+#error "Platform not supported"
 #endif
 
 #include <log.h>
@@ -75,9 +77,6 @@ char *alloc_pansn_tag(const struct pansn *pn)
 {
 	// idx_t hap_id_len = (idx_t)log10(pn->hap_id);
 	idx_t hap_id_len = count_digits(pn->hap_id);
-
-	log_info("sample len  %u hap_id_len %u ctg %u", strlen(pn->sample_name),
-		 hap_id_len, strlen(pn->contig_name));
 
 	char hap_id_str[MAX_DIGITS];
 	snprintf(hap_id_str, sizeof hap_id_str, "%u", pn->hap_id);

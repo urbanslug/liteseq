@@ -5,7 +5,7 @@
 #define strtok_r strtok_s
 #define strndup _strndup
 #define strdup _strdup
-#elif defined(APPLE)
+#elif defined(__APPLE__)
 // No additional definitions required for macOS
 #else
 #error "Platform not supported"

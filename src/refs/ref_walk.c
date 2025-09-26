@@ -2,12 +2,7 @@
 #include <stdlib.h>
 #include <string.h> // for memset
 
-#include "../include/liteseq/refs.h"
-
-#define P_LINE_FORWARD_SYMBOL '+'
-#define P_LINE_REVERSE_SYMBOL '-'
-#define W_LINE_FORWARD_SYMBOL '>'
-#define W_LINE_REVERSE_SYMBOL '<'
+#include "../../include/liteseq/refs.h"
 
 void destroy_ref_walk(struct ref_walk **w)
 {
@@ -68,37 +63,6 @@ struct ref_walk *alloc_ref_walk(idx_t step_count)
 	w->hap_len = 0; // default to 0
 
 	return w;
-}
-
-static inline bool is_step_sep(enum gfa_line_prefix line_prefix, const char c)
-{
-	switch (line_prefix) {
-	case P_LINE:
-		return c == P_LINE_FORWARD_SYMBOL || c == P_LINE_REVERSE_SYMBOL;
-	case W_LINE:
-		return c == W_LINE_FORWARD_SYMBOL || c == W_LINE_REVERSE_SYMBOL;
-	default:
-		log_fatal("Invalid line prefix in is_step_sep");
-		exit(1);
-	}
-}
-
-/**
- * @brief Count the number of steps in a P line path; it is the number
- * of commas
- * + 1
- *
- * @param [in] str the path string
- * @return the number of steps in the path
- */
-idx_t count_steps(enum gfa_line_prefix line_prefix, const char *str)
-{
-	idx_t steps = 0;
-	for (; *str; str++)
-		if (is_step_sep(line_prefix, *str))
-			steps++;
-
-	return steps;
 }
 
 status_t parse_data_line_w(const char *str, struct ref_walk **empty_r_walk)

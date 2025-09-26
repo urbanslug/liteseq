@@ -4,6 +4,10 @@
 #include <liteseq/refs.h>
 #include <liteseq/types.h>
 
+#include "../src/refs/ref_impl.h"
+#include "../src/refs/ref_name.h"
+#include "../src/refs/ref_walk.h"
+
 using namespace liteseq;
 
 const char DELIM = HASH_CHAR;
