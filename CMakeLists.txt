@@ -161,7 +161,7 @@ endif()
 
 # --- Threading Configuration ---
 
-message("Looking for an appropriate threading library...")
+message(STATUS "Looking for an appropriate threading library...")
 if (APPLE)
   # Log the start of macOS SDK retrieval
   message(STATUS "Retrieving macOS SDK path using xcrun...")

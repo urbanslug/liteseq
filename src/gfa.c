@@ -29,6 +29,9 @@
  * -----------------
  */
 
+#define EXPECTED_S_LINE_TOKENS 3 // the number of tokens expected in a S line
+#define H_LINE_VERSION_IDX 1	 // the index of the version token in the H line
+
 void tokens_free(char **tokens)
 {
 	for (size_t i = 0; i < MAX_TOKENS && tokens[i] != NULL; i++) {
@@ -116,29 +119,69 @@ int tokenise(const char *str, size_t line_length, size_t expected_token_count,
  * -------------------
  */
 
-status_t set_version(char *curr_char, char *newline, gfa_props *g)
+status_t set_version(const char *h_line, gfa_props *g)
 {
-	idx_t line_length = (idx_t)(newline - curr_char);
-	char *tokens[MAX_TOKENS] = {NULL};
-	int token_count;
-	const char *version_str = NULL;
-	status_t result = -1; // assume failure
+	char *tokens[EXPECTED_H_LINE_TOKENS] = {NULL};
+	struct split_str_params p = {
+		.str = h_line,
+		.delimiter = TAB_CHAR,
+		.fallbacks = "",
+		.fallback_chars_count = 0,
+		.max_splits = EXPECTED_H_LINE_TOKENS,
 
-	token_count = tokenise(curr_char, line_length, EXPECTED_H_LINE_TOKENS,
-			       tokens);
-	// TODO: check if token_count is -1
-	version_str = tokens[1];
+		.tokens_found = 0,
+		.tokens = tokens,
+		.end = NULL,
+	};
 
-	g->version = from_string_gfa_version(version_str);
-	if (g->version == gfa_version_INVALID) {
-		fprintf(stderr, "[liteseq::gfa] Unsupported GFA version: %s\n",
-			version_str);
+	status_t res = split_str(&p);
+	if (res != SUCCESS) {
+		log_fatal("Could not parse H line");
+		return res;
 	}
 
-	result = 0; // success
+	const char *version_str = tokens[H_LINE_VERSION_IDX];
+	g->version = from_string_gfa_version(version_str);
+	if (g->version == gfa_version_INVALID) {
+		log_fatal("Unsupported GFA version: %s", version_str);
+	}
 
 	tokens_free(tokens);
-	return result;
+
+	return SUCCESS;
+}
+
+/**
+ * @brief used to extract the v id from an S line
+ *
+ * @param [in] str the start of the S line
+ * @return the vertex id
+ */
+u32 get_num_vid(const char *str, u32 linum)
+{
+	char *start = NULL;
+	char *end = NULL;
+	int count = 0;
+	do {
+		start = end;
+		end = strchr(str, TAB_CHAR);
+		if (end == NULL)
+			log_fatal("Badly formatted S Line on line %u", linum);
+		count++;
+	} while (count < 2);
+
+	u32 num = strtoull(start, &end, 10);
+
+	return num;
+}
+
+void set_v_id_bounds(const char *curr_char, gfa_props *g, idx_t linum)
+{
+	u32 curr_v_id = get_num_vid(curr_char, linum);
+	if (curr_v_id > g->max_v_id)
+		g->max_v_id = curr_v_id;
+	if (curr_v_id < g->min_v_id)
+		g->min_v_id = curr_v_id;
 }
 
 /**
@@ -168,6 +211,7 @@ status_t analyse_gfa_structure(gfa_props *g)
 		switch (curr_char[0]) {
 		case GFA_S_LINE:
 			g->s_line_count++;
+			set_v_id_bounds(curr_char, g, curr_line);
 			break;
 		case GFA_L_LINE:
 			g->l_line_count++;
@@ -197,21 +241,6 @@ status_t analyse_gfa_structure(gfa_props *g)
 		curr_char = newline + 1; // Skip the newline character
 		curr_line++;
 	}
-
-	/* if (g->inc_refs) { */
-	/*	switch (g->version) { */
-	/*	case GFA_1_0: */
-	/*		g->ref_count = g->p_line_count; */
-	/*		break; */
-	/*	case GFA_1_1: */
-	/*		g->ref_count = g->w_line_count; */
-	/*		break; */
-	/*	default: */
-	/*		fprintf(stderr, "[liteseq::gfa] Unsupported GFA " */
-	/*				"version for reference parsing  \n"); */
-	/*		return -3; */
-	/*	} */
-	/* } */
 
 	return 0;
 }
@@ -288,17 +317,34 @@ status_t handle_s(const char *s_line, idx_t line_length, size_t idx,
 {
 	vtx *vertices = (vtx *)s;
 
-	int token_count =
-		tokenise(s_line, line_length, EXPECTED_S_LINE_TOKENS, tokens);
-	if (token_count == -1) {
-		return -1;
+	struct split_str_params p = {
+		.str = s_line,
+		.delimiter = TAB_CHAR,
+		.fallbacks = "",
+		.fallback_chars_count = 0,
+		.max_splits = 3,
+
+		.tokens_found = 0,
+		.tokens = tokens,
+		.end = NULL,
+	};
+
+	status_t res = split_str(&p);
+	if (res != SUCCESS) {
+		log_fatal("could not parse S line");
+		return res;
 	}
 
-	size_t v_id = strtoul(tokens[1], NULL, 10);
-	char *v_label = inc_vtx_labels ? strdup(tokens[2]) : NULL;
-	vertices[idx] = (vtx){.id = v_id, .seq = v_label};
+	vtx v = {.id = strtoul(tokens[1], NULL, 10),
+		 .seq = inc_vtx_labels ? tokens[2] : NULL};
+	vertices[v.id] = v;
 
-	tokens_free(tokens);
+	free(tokens[0]); // free the line type token
+	free(tokens[1]); // free the vertex ID token
+
+	// free the sequence token only if vertex labels are not included
+	if (!inc_vtx_labels)
+		free(tokens[2]);
 
 	return 0;
 }
@@ -316,7 +362,7 @@ void *thread_handle_s_lines(void *arg)
 	bool inc_vtx_labels = *((bool *)args[3]);
 
 	// temporary storage for the tokens extracted from a given line
-	char *tokens[MAX_TOKENS] = {NULL};
+	char *tokens[EXPECTED_S_LINE_TOKENS] = {NULL};
 
 	for (idx_t i = 0; i < line_count; i++) {
 		handle_s(line_positions[i].start, line_positions[i].len, i,
@@ -416,66 +462,6 @@ void *thread_handle_l_lines(void *arg)
 	return NULL;
 }
 
-/* status_t handle_p(const char *p_line, size_t line_length, size_t idx, */
-/*		  char **tokens, bool c, void *p) */
-/* { */
-/*	UNUSED(c); // mark the config as unused. Suppress unused parameter */
-/*		   // warning */
-/*	// ref *paths = (ref *)p; */
-
-/*	/\* int token_count = *\/ */
-/*	/\*	tokenise(p_line, line_length, EXPECTED_P_LINE_TOKENS, tokens);
- */
-/*	 *\/ */
-/*	/\* if (token_count == -1) { *\/ */
-/*	/\*	return -1; *\/ */
-/*	/\* } *\/ */
-
-/*	/\* char *path_name = tokens[1]; *\/ */
-/*	/\* char *path_str = tokens[2]; *\/ */
-
-/*	/\* idx_t step_count = count_steps_old(path_str); *\/ */
-
-/*	/\* step *steps = (step *)malloc(step_count * sizeof(step)); *\/ */
-
-/*	/\* paths[idx].name = strdup(path_name); *\/ */
-/*	/\* paths[idx].steps = steps; *\/ */
-/*	/\* paths[idx].step_count = step_count; *\/ */
-
-/*	/\* parse_ref2(steps, path_str); *\/ */
-
-/*	/\* tokens_free(tokens); *\/ */
-/*	struct ref *r = (struct ref *)p; */
-/*	r = parse_ref_line(P_LINE, strdup(p_line)); */
-/*	if (!r) { */
-/*		fprintf(stderr, "Error: Failed to parse P line: %s\n", p_line);
- */
-/*		return -1; */
-/*	} */
-
-/*	return 0; */
-/* } */
-
-/* status_t handle_ref_line(enum gfa_line_prefix prefix, char *ref_line, */
-/*			 idx_t ref_idx, struct ref **refs) */
-/* { */
-/*	const char *fn = "[liteseq::gfa::handle_ref_line]"; */
-
-/*	switch (prefix) { */
-/*	case (P_LINE): */
-
-/*		break; */
-/*	case (W_LINE): */
-/*		refs[ref_idx] = parse_ref_line(W_LINE, ref_line); */
-/*		break; */
-/*	default: */
-/*		log_error("%s Unsupported line prefix.", fn); */
-/*		return ERROR_CODE_FAILURE; */
-/*	} */
-
-/*	return SUCCESS; */
-/* } */
-
 struct ref_thread_data {
 	struct ref **refs;
 	line *p_lines; // metadata for a P line
@@ -506,6 +492,31 @@ void *thread_handle_p_lines(void *ref_metadata)
 	return NULL;
 }
 
+status_t set_ref_loci(gfa_props *gfa)
+{
+	vtx *vs = gfa->v;
+	if (vs == NULL) {
+		return ERROR_CODE_INVALID_ARGUMENT;
+	}
+
+	for (int i = 0; i < gfa->ref_count; i++) {
+		struct ref *r = gfa->refs[i];
+		struct ref_walk *rw = r->walk;
+		idx_t locus = 1; // DNA is 1 indexed
+		for (int j = 0; j < rw->step_count; j++) {
+			rw->loci[j] = locus;
+			idx_t v_id = rw->v_ids[j];
+			vtx vv = vs[v_id];
+			const char *s = vv.seq;
+			idx_t l = strlen(s);
+			locus += l;
+		}
+		set_hap_len(r, locus - 1);
+	}
+
+	return SUCCESS;
+}
+
 status_t populate_gfa(gfa_props *gfa)
 {
 	/* Create threads */
@@ -528,7 +539,7 @@ status_t populate_gfa(gfa_props *gfa)
 		return -1; // Failed to create thread for L lines
 	}
 
-	if (gfa->inc_refs) {
+	if (gfa->inc_refs && gfa->inc_vtx_labels) {
 		struct ref_thread_data ref_data = {
 			.refs = gfa->refs,
 			.p_lines = gfa->p_lines,
@@ -547,21 +558,31 @@ status_t populate_gfa(gfa_props *gfa)
 	if (gfa->inc_refs)
 		pthread_join(thread_p, NULL);
 
-	return 0;
+	/* Set reference loci if references are included */
+	if (gfa->inc_refs) {
+		gfa->status = set_ref_loci(gfa);
+		if (gfa->status != 0) {
+			log_fatal("Failed to set reference loci");
+			return gfa->status;
+		}
+	}
+
+	return SUCCESS;
 }
 
 /**  pre-allocate memory for vertices, edges, and maybe references
  */
 status_t preallocate_gfa(gfa_props *p)
 {
-	p->v = malloc(p->s_line_count * sizeof(vtx));
-	if (p->inc_vtx_labels) {
-		for (idx_t i = 0; i < p->s_line_count; i++) {
-			p->v[i].seq = NULL;
-		}
-	}
+	u32 vtx_arr_size = p->max_v_id + 1;
+	p->v = malloc(sizeof(vtx) * vtx_arr_size);
 	if (!p->v)
 		return ERROR_CODE_OUT_OF_MEMORY;
+	// init with NULLs makes freeing more straightforward
+	// memset sssumes seq pointers are at offset 0 in the vtx structure
+	if (p->inc_vtx_labels) {
+		memset(p->v, 0, sizeof(vtx) * vtx_arr_size);
+	}
 
 	p->e = malloc(p->l_line_count * sizeof(edge));
 	if (!p->e)
@@ -599,6 +620,9 @@ gfa_props *init_gfa(const gfa_config *conf)
 
 	p->ref_count = 0;
 
+	p->min_v_id = UINT32_MAX;
+	p->max_v_id = 0;
+
 	p->v = NULL;
 	p->e = NULL;
 	p->refs = NULL;
@@ -611,9 +635,11 @@ gfa_props *init_gfa(const gfa_config *conf)
 
 gfa_props *gfa_new(const gfa_config *conf)
 {
-
-	// set up the config
-	gfa_props *p = init_gfa(conf);
+	gfa_props *p = init_gfa(conf); // set up the config
+	if (p == NULL) {
+		log_fatal("init gfa failed");
+		return NULL;
+	}
 
 	char *mapped;	      // pointer to the start of the memory mapped file
 	char *end;	      // pointer to the end of the memory mapped file
@@ -655,40 +681,34 @@ void gfa_free(gfa_props *gfa)
 {
 	close_mmap(gfa->start, gfa->file_size);
 
-	if (gfa->inc_vtx_labels) {
-		for (idx_t i = 0; i < gfa->s_line_count; i++) {
-			if (gfa->v[i].seq != NULL) {
-				free(gfa->v[i].seq);
-			}
-		}
-	}
+	if (gfa->s_lines)
+		free(gfa->s_lines);
 
-	if (gfa->v) {
-		free(gfa->v);
-	}
+	if (gfa->l_lines)
+		free(gfa->l_lines);
 
-	if (gfa->e) {
+	if (gfa->p_lines)
+		free(gfa->p_lines);
+
+	if (gfa->w_lines)
+		free(gfa->w_lines);
+
+	if (gfa->e)
 		free(gfa->e);
-	}
+
+	if (gfa->inc_vtx_labels)
+		for (idx_t i = 0; i < (gfa->max_v_id + 1); i++)
+			if (gfa->v[i].seq != NULL)
+				free(gfa->v[i].seq);
+
+	if (gfa->v)
+		free(gfa->v);
 
 	if (gfa->refs) {
 		for (idx_t i = 0; i < gfa->ref_count; i++)
 			destroy_ref(&(gfa->refs[i]));
 		if (gfa->refs)
 			free(gfa->refs);
-	}
-
-	if (gfa->s_lines) {
-		free(gfa->s_lines);
-	}
-	if (gfa->l_lines) {
-		free(gfa->l_lines);
-	}
-	if (gfa->p_lines) {
-		free(gfa->p_lines);
-	}
-	if (gfa->w_lines) {
-		free(gfa->w_lines);
 	}
 
 	free(gfa);

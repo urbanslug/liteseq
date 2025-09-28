@@ -3,7 +3,6 @@
 
 #include <pthread.h> // multithreading
 #include <stdbool.h>
-
 #include <string.h>
 
 #include "../src/internal/lq_enums.h"
@@ -12,16 +11,9 @@
 
 #ifdef __cplusplus
 extern "C" {
-
 namespace liteseq
 {
-
 #endif
-
-/*
- * Enums
- * -----
- */
 
 // Represents the two sides of a vertex in a bidirected graph
 typedef enum {
@@ -29,16 +21,9 @@ typedef enum {
 	RIGHT // other name is negative or reverse
 } vtx_side_e;
 
-// // Represents the two directions of a DNA sequence
-// typedef enum {
-//	FORWARD, // other name is positive
-//	REVERSE	 // other name is negative
-// } strand_e;
-
 #define GFA_VERSION_ITEMS(_)                                                   \
 	_(GFA_1_0, "VN:Z:1.0")                                                 \
 	_(GFA_1_1, "VN:Z:1.1")
-
 DEFINE_ENUM_AND_STRING(gfa_version, GFA_VERSION_ITEMS)
 
 /*
@@ -69,17 +54,6 @@ typedef struct {
 	vtx_side_e v2_side; // the side of the second vertex
 } edge;
 
-// typedef struct {
-//	id_t v_id;
-//	enum strand s;
-// } step;
-
-// typedef struct {
-//	char *name;
-//	step *steps;
-//	idx_t step_count;
-// } ref;
-
 // This struct holds metadata about the GFA file
 // for internal use
 // TODO: rename to gfa_meta
@@ -98,6 +72,9 @@ typedef struct {
 	line *l_lines;
 	line *p_lines;
 	line *w_lines;
+
+	u32 min_v_id; // the minimum vertex id in the GFA file
+	u32 max_v_id; // the maximum vertex id in the GFA file
 
 	vtx *v;		   // the array of vertices
 	edge *e;	   // the array of edges

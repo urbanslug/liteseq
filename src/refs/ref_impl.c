@@ -224,7 +224,6 @@ const struct line_metadata *get_line_metadata(enum gfa_line_prefix prefix)
 struct ref *parse_line_generic(const char *line,
 			       const struct line_metadata *meta)
 {
-	const char *fn = "[liteseq::refs::parse_line_generic]";
 	char *tokens[MAX_TOKENS] = {NULL};
 	struct split_str_params p = {
 		// input
@@ -241,7 +240,7 @@ struct ref *parse_line_generic(const char *line,
 
 	status_t s = split_str(&p);
 	if (p.tokens_found < meta->required_tokens) {
-		log_fatal("%s Failed to split %d-line. Found %u tokens.", fn,
+		log_fatal("Failed to split %d-line. Found %u tokens.",
 			  p.delimiter, p.tokens_found);
 		return NULL;
 	}
@@ -265,7 +264,7 @@ struct ref *parse_line_generic(const char *line,
 	idx_t step_count = count_steps(meta->line_prefix, data_str);
 	struct ref_walk *w = alloc_ref_walk(step_count);
 	if (!w) {
-		log_fatal("%s Failed to allocate walk for %d-line.", fn,
+		log_fatal("Failed to allocate walk for %d-line.",
 			  meta->line_prefix);
 		destroy_ref_id(&r_id);
 		exit(1);
@@ -273,7 +272,7 @@ struct ref *parse_line_generic(const char *line,
 
 	status_t res = meta->parse_data_line(data_str, &w);
 	if (res != SUCCESS) {
-		log_error("%s Failed to parse data for %d-line.", fn,
+		log_error("Failed to parse data for %d-line.",
 			  meta->line_prefix);
 		return NULL;
 	}

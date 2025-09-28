@@ -54,7 +54,7 @@ struct ref_walk {
 	// the actual walk
 	enum strand *strands;
 	id_t *v_ids;
-	idx_t *loci;
+	idx_t *loci; // the locus of the first base of each step
 	// walk metadata
 	idx_t step_count; // the number of steps
 	idx_t hap_len;	  // the length of the haplotype in bases

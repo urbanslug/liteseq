@@ -15,6 +15,7 @@ namespace liteseq
 typedef uint8_t byte;
 typedef uint32_t idx_t;
 typedef uint32_t id_t;
+typedef uint32_t u32;
 typedef int8_t status_t;
 
 // for null values use the max value of the type
@@ -106,7 +107,7 @@ enum strand {
 
 #define EXPECTED_P_LINE_TOKENS 3 // the number of tokens expected in a P line
 #define EXPECTED_L_LINE_TOKENS 4 // the number of tokens expected in a L line
-#define EXPECTED_S_LINE_TOKENS 3 // the number of tokens expected in a S line
+
 #define EXPECTED_H_LINE_TOKENS 2 // the number of tokens expected in a H line
 
 #ifdef __cplusplus

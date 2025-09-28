@@ -28,7 +28,7 @@ gfa_config gen_config(const char *fp)
 	(void)conf_b; // to avoid unused variable warning
 
 	gfa_config conf_c = {
-		.fp = fp, .inc_vtx_labels = false, .inc_refs = true};
+		.fp = fp, .inc_vtx_labels = true, .inc_refs = true};
 
 	return conf_c;
 }
