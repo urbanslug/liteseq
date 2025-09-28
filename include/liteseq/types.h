@@ -44,6 +44,7 @@ typedef enum {
 	ERROR_CODE_UNKNOWN = -17
 } ERROR_CODE;
 
+#define FAIL ERROR_CODE_FAILURE
 #define SUCCESS ERROR_CODE_SUCCESS
 
 #define COMMA_CHAR ','
@@ -106,7 +107,7 @@ enum strand {
 #define GFA_W_LINE 'W' // walk line
 
 #define EXPECTED_P_LINE_TOKENS 3 // the number of tokens expected in a P line
-#define EXPECTED_L_LINE_TOKENS 4 // the number of tokens expected in a L line
+#define EXPECTED_L_LINE_TOKENS 5 // the number of tokens expected in a L line
 
 #define EXPECTED_H_LINE_TOKENS 2 // the number of tokens expected in a H line
 

@@ -228,6 +228,7 @@ struct ref *parse_line_generic(const char *line,
 	struct split_str_params p = {
 		// input
 		.str = line,
+		.up_to = NULL,
 		.delimiter = TAB_CHAR,
 		.max_splits = meta->required_tokens,
 		.fallbacks = (const char[]){NEWLINE, NULL_CHAR},

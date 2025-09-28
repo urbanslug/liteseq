@@ -31,9 +31,10 @@ TEST(Tokenise, Basic)
 	const char *out_tokens[] = {"token1", "token2", "token3"};
 
 	struct split_str_params p = {
-		input,	   // str: Must be the first member in the struct
-		delim,	   // delimiter
-		fallbacks, // fallbacks
+		input, // str: Must be the first member in the struct
+		NULL,
+		delim,		      // delimiter
+		fallbacks,	      // fallbacks
 		fallback_chars_count, // fallback_chars_count
 		10,		      // max_tokens
 		tokens_found,	      // tokens_found
@@ -69,9 +70,10 @@ TEST(Tokenise, NoDelim)
 	const char *out_tokens[] = {"single_token_no_delim"};
 
 	struct split_str_params p = {
-		input,	   // str: Must be the first member in the struct
-		delim,	   // delimiter
-		fallbacks, // fallbacks
+		input, // str: Must be the first member in the struct
+		NULL,
+		delim,		      // delimiter
+		fallbacks,	      // fallbacks
 		fallback_chars_count, // fallback_chars_count
 		10,		      // max_tokens
 		tokens_found,	      // tokens_found

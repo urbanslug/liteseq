@@ -98,6 +98,7 @@ status_t split_str(struct split_str_params *p)
 	const char *fn = "[liteseq::utils::split_str]";
 
 	const char *str = p->str;
+	const char *up_to = p->up_to;
 	const char c = p->delimiter;
 	const char *fallbacks = p->fallbacks;
 	idx_t fallback_chars_count = p->fallback_chars_count;
@@ -106,12 +107,23 @@ status_t split_str(struct split_str_params *p)
 
 	idx_t tokens_found = 0;
 	int len = 0;
+
+	bool limit_reached = false;
+
 	while (len != -1 && tokens_found < max_tokens) {
 		struct match_result match_res =
 			find_delim(str, c, fallbacks, fallback_chars_count);
 		len = match_res.len;
 
 		if (len == -1)
+			break;
+
+		if (up_to != NULL && match_res.delim_ptr > up_to) {
+			limit_reached = true;
+			len = (int)(up_to - str);
+		}
+
+		if (len <= 0)
 			break;
 
 		char *tok = malloc(sizeof(char) * len + 1);
@@ -128,7 +140,7 @@ status_t split_str(struct split_str_params *p)
 		all_tokens[tokens_found++] = tok;
 
 		str += len + 1;
-		if (match_res.at_fallback)
+		if (match_res.at_fallback || limit_reached)
 			break;
 	}
 

@@ -66,6 +66,8 @@ uint8_t encodeBase(char base);
 struct split_str_params {
 	// input, not mutated.
 	const char *str;	    // input string
+	const char *up_to;	    // input, if not NULL, the function will not
+				    // read beyond this pointer
 	char delimiter;		    // primary delimiter for split
 	const char *fallbacks;	    // fallback characters for split
 	idx_t fallback_chars_count; // number of fallback characters in fallback

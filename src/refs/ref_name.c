@@ -113,6 +113,7 @@ struct pansn *try_extract_pansn_from_str(const char *name, const char delim)
 	struct split_str_params p = {
 		// input
 		.str = name,
+		.up_to = NULL,
 		.delimiter = delim,
 		.max_splits = PANSN_MAX_TOKENS,
 		.fallbacks = (const char[]){NEWLINE, NULL_CHAR},
