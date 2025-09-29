@@ -1,8 +1,11 @@
 #ifndef LQ_REF_IMPL_H
 #define LQ_REF_IMPL_H
 
+#include <pthread.h>
+
 #include "../../include/liteseq/refs.h"
 #include "../../include/liteseq/types.h"
+#include "../include/liteseq/gfa.h"
 
 #ifdef __cplusplus
 extern "C" { // Ensure the function has C linkage
@@ -12,6 +15,16 @@ namespace liteseq
 
 #define P_LINE_ID_TOKEN_COUNT 1
 #define W_LINE_ID_TOKEN_COUNT 3
+
+struct ref_thread_data {
+	struct ref **refs;
+	line *p_lines; // metadata for a P line
+	line *w_lines; // metadata for a W line
+	idx_t p_line_count;
+	idx_t w_line_count;
+};
+
+void *t_handle_p(void *ref_metadata);
 
 // fns I want to expose only for testing
 #ifdef TESTING

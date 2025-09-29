@@ -15,7 +15,10 @@
 #include "../include/liteseq/types.h"
 #include "../src/internal/lq_io.h"
 #include "../src/internal/lq_utils.h"
-#include "liteseq/refs.h"
+
+#include "./gfa_l.h"
+#include "./gfa_s.h"
+#include "./refs/ref_impl.h"
 
 #include <log.h>
 
@@ -29,29 +32,9 @@
  * -----------------
  */
 
-#define EXPECTED_S_LINE_TOKENS 3 // the number of tokens expected in a S line
-#define H_LINE_VERSION_IDX 1	 // the index of the version token in the H line
+#define H_LINE_VERSION_IDX 1 // the index of the version token in the H line
 
-#define S_LINE_TYPE_IDX 0 // the index of the line type token in the S line
-#define S_LINE_V_ID_IDX 1 // the index of the vertex ID token in the S line
-#define S_LINE_SEQ_IDX 2  // the index of the sequence token in the S line
-
-#define L_LINE_TYPE_IDX 0      // the index of the line type token in the L line
-#define L_LINE_V1_ID_IDX 1     //  first vertex ID token in the L line
-#define L_LINE_V1_STRAND_IDX 2 // first vertex strand token in the L line
-#define L_LINE_V2_ID_IDX 3     // second vertex ID token in the L line
-#define L_LINE_V2_STRAND_IDX 4 // second vertex strand token in the L line
-
-// #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
-void tokens_free(char **tokens, u32 N)
-{
-	for (size_t i = 0; i < N && tokens[i] != NULL; i++) {
-		free(tokens[i]);
-		tokens[i] = NULL;
-	}
-	// TODO is a memset here faster or better suited in case of errors?
-}
+DEFINE_ENUM_AND_STRING(gfa_version, GFA_VERSION_ITEMS)
 
 /*
  * GFA Parse Functions
@@ -255,198 +238,6 @@ status_t index_lines(gfa_props *gfa)
 	return 0;
 }
 
-status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
-		  vtx *vertices)
-{
-	struct split_str_params p = {
-		.str = s_line,
-		.up_to = NULL,
-		.delimiter = TAB_CHAR,
-		.fallbacks = "",
-		.fallback_chars_count = 0,
-		.max_splits = 3,
-
-		.tokens_found = 0,
-		.tokens = tokens,
-		.end = NULL,
-	};
-
-	status_t res = split_str(&p);
-	if (res != SUCCESS) {
-		log_fatal("Could not parse S line");
-		return res;
-	}
-
-	vtx v = {.id = strtoul(tokens[S_LINE_V_ID_IDX], NULL, 10),
-		 .seq = inc_vtx_labels ? tokens[S_LINE_SEQ_IDX] : NULL};
-	vertices[v.id] = v;
-
-	free(tokens[S_LINE_TYPE_IDX]); // free the line type token
-	free(tokens[S_LINE_V_ID_IDX]); // free the vertex ID token
-
-	// free the sequence token only if vertex labels are not included
-	if (!inc_vtx_labels)
-		free(tokens[S_LINE_SEQ_IDX]);
-
-	return 0;
-}
-
-struct s_thread_meta {
-	vtx *vertices;
-	line *s_lines;
-	idx_t s_line_count;
-	bool inc_vtx_labels;
-};
-
-/**
- * @brief a wrapper function for handle_s_lines
- */
-void *t_handle_s(void *s_meta)
-{
-	struct s_thread_meta *meta = (struct s_thread_meta *)s_meta;
-	vtx *vtxs = meta->vertices;
-	line *line_positions = meta->s_lines;
-	idx_t line_count = meta->s_line_count;
-	bool inc_vtx_labels = meta->inc_vtx_labels;
-
-	// temporary storage for the tokens extracted from a given line
-	char *tokens[EXPECTED_S_LINE_TOKENS] = {NULL};
-
-	for (idx_t i = 0; i < line_count; i++)
-		handle_s(line_positions[i].start, tokens, inc_vtx_labels, vtxs);
-
-	return NULL;
-}
-
-/**
- * In a self loop the source (src) and sink (snk) are the same value
- * A self loop can be in the forward, reverse, or mixed strand
- *
- * Examples:
- * L 1 + 1 + is a forward self loop
- * L 1 - 1 - is a reverse self loop
- *
- * L 1 + 1 -  and L 1 - 1 + are mixed self loops that aren't
- * representable in a bidirected graph without node duplication
- *
- * @param [in] l_line the line to parse
- * @param [in] line_length the length of the line
- * @param [in] idx the index of the line
- * @param [in] tokens the tokens to parse
- * @param [in] c the config
- * @param [out] e the edges to populate
- * @return 0 on success, -1 on failure
- */
-status_t handle_l(const char *l_line, size_t idx, char **tokens, edge *edges)
-{
-	struct split_str_params p = {
-		.str = l_line,
-		.up_to = NULL,
-		.delimiter = TAB_CHAR,
-		.fallbacks = "",
-		.fallback_chars_count = 0,
-		.max_splits = EXPECTED_L_LINE_TOKENS,
-
-		.tokens_found = 0,
-		.tokens = tokens,
-		.end = NULL,
-	};
-
-	status_t res = split_str(&p);
-
-	// Parse vertex IDs
-	size_t v1_id = strtoul(tokens[L_LINE_V1_ID_IDX], NULL, 10);
-	size_t v2_id = strtoul(tokens[L_LINE_V2_ID_IDX], NULL, 10);
-
-	// parse strand symbols. A strand symbol is either + or -
-	char v1_strand_symbol = tokens[L_LINE_V1_STRAND_IDX][0];
-	char v2_strand_symbol = tokens[L_LINE_V2_STRAND_IDX][0];
-
-	// Determine vertex sides based on strand symbols
-	vtx_side_e v1_side, v2_side;
-	if (unlikely(v1_id == v2_id)) { // check for self loop
-		if (v1_strand_symbol != v2_strand_symbol) {
-			fprintf(stderr,
-				"Error: Invalid self loop: %ld %c and %ld %c\n",
-				v1_id, v1_strand_symbol, v2_id,
-				v2_strand_symbol);
-			return -1;
-		} else if (v1_strand_symbol == v2_strand_symbol) {
-			v1_side = LEFT;
-			v2_side = RIGHT;
-		}
-	} else {
-		v1_side = (v1_strand_symbol == '+') ? RIGHT : LEFT;
-		v2_side = (v2_strand_symbol == '+') ? LEFT : RIGHT;
-	}
-
-	// populate the edge
-	edges[idx] = (edge){.v1_id = v1_id,
-			    .v1_side = v1_side,
-			    .v2_id = v2_id,
-			    .v2_side = v2_side};
-
-	tokens_free(tokens, EXPECTED_L_LINE_TOKENS);
-
-	return 0;
-}
-
-struct l_thread_meta {
-	edge *edges;
-	line *l_lines;
-	idx_t l_line_count;
-};
-
-/**
- * @brief a wrapper function for handle_l_lines
- */
-void *t_handle_l(void *l_meta)
-{
-	struct l_thread_meta *meta = (struct l_thread_meta *)l_meta;
-	edge *edges = meta->edges;
-	line *line_positions = meta->l_lines;
-	idx_t line_count = meta->l_line_count;
-
-	// temporary storage for the tokens extracted from a given line
-	char *tokens[EXPECTED_L_LINE_TOKENS] = {NULL};
-
-	for (idx_t i = 0; i < line_count; i++) {
-		handle_l(line_positions[i].start, i, tokens, edges);
-	}
-
-	return NULL;
-}
-
-struct ref_thread_data {
-	struct ref **refs;
-	line *p_lines; // metadata for a P line
-	line *w_lines; // metadata for a W line
-	idx_t p_line_count;
-	idx_t w_line_count;
-};
-
-/**
- * @brief a wrapper function for handle_p_lines
- */
-void *t_handle_p(void *ref_metadata)
-{
-	struct ref_thread_data *data = (struct ref_thread_data *)ref_metadata;
-	line *p_lines = data->p_lines;
-	line *w_lines = data->w_lines;
-	idx_t p_line_count = data->p_line_count;
-	idx_t w_line_count = data->w_line_count;
-	struct ref **refs = data->refs;
-	idx_t ref_idx = 0;
-
-	for (idx_t i = 0; i < p_line_count; i++)
-		refs[ref_idx++] = parse_ref_line(P_LINE, p_lines[i].start);
-
-	for (idx_t i = 0; i < w_line_count; i++)
-		refs[ref_idx++] = parse_ref_line(W_LINE, w_lines[i].start);
-
-	return NULL;
-}
-
 status_t set_ref_loci(gfa_props *gfa)
 {
 	vtx *vs = gfa->v;
@@ -468,8 +259,10 @@ status_t set_ref_loci(gfa_props *gfa)
 	return SUCCESS;
 }
 
-status_t pop_s(pthread_t t, gfa_props *gfa)
+status_t populate_gfa(gfa_props *gfa)
 {
+	pthread_t thread_s, thread_l, thread_p;
+
 	struct s_thread_meta s_meta = {
 		.vertices = gfa->v,
 		.s_lines = gfa->s_lines,
@@ -477,31 +270,13 @@ status_t pop_s(pthread_t t, gfa_props *gfa)
 		.inc_vtx_labels = gfa->inc_vtx_labels,
 	};
 
-	if (pthread_create(&t, NULL, t_handle_s, (void *)&s_meta) != 0)
-		return FAIL; // Failed to create thread for S lines
-
-	return SUCCESS;
-}
-
-status_t pop_l(pthread_t t, gfa_props *gfa)
-{
 	struct l_thread_meta l_meta = {
 		.edges = gfa->e,
 		.l_lines = gfa->l_lines,
 		.l_line_count = gfa->l_line_count,
 	};
 
-	if (pthread_create(&t, NULL, t_handle_l, (void *)&l_meta) != 0)
-		return FAIL; // Failed to create thread for L lines
-
-	return SUCCESS;
-}
-status_t pop_p(pthread_t t, gfa_props *gfa)
-{
-	if (!gfa->inc_refs)
-		return SUCCESS;
-
-	struct ref_thread_data ref_data = {
+	struct ref_thread_data ref_meta = {
 		.refs = gfa->refs,
 		.p_lines = gfa->p_lines,
 		.w_lines = gfa->w_lines,
@@ -509,28 +284,19 @@ status_t pop_p(pthread_t t, gfa_props *gfa)
 		.w_line_count = gfa->w_line_count,
 	};
 
-	if (pthread_create(&t, NULL, t_handle_p, (void *)&ref_data) != 0)
-		return FAIL; // Failed to create thread for P lines
+	if (pthread_create(&thread_s, NULL, t_handle_s, (void *)&s_meta) != 0)
+		return FAILURE; // Failed to create thread for S lines
 
-	return SUCCESS;
-}
+	// res = pop_l(&thread_l, &l_meta);
+	if (pthread_create(&thread_l, NULL, t_handle_l, (void *)&l_meta) != 0) {
+		return FAILURE; // Failed to create thread for L lines
+	}
 
-status_t populate_gfa(gfa_props *gfa)
-{
-	pthread_t thread_s, thread_l, thread_p;
-
-	status_t res = SUCCESS;
-	res = pop_s(thread_s, gfa);
-	if (res != SUCCESS)
-		return res;
-
-	res = pop_l(thread_l, gfa);
-	if (res != SUCCESS)
-		return res;
-
-	res = pop_p(thread_p, gfa);
-	if (res != SUCCESS)
-		return res;
+	if (gfa->inc_refs) {
+		if (pthread_create(&thread_p, NULL, t_handle_p,
+				   (void *)&ref_meta) != 0)
+			return FAILURE; // Failed to create thread for P lines
+	}
 
 	// TODO: what if one of the threads fails and returns early
 	/* Wait for threads to finish */
@@ -540,7 +306,7 @@ status_t populate_gfa(gfa_props *gfa)
 		pthread_join(thread_p, NULL);
 
 	if (gfa->inc_refs && gfa->inc_vtx_labels) {
-		res = set_ref_loci(gfa);
+		status_t res = set_ref_loci(gfa);
 		if (res != SUCCESS) {
 			log_fatal("Failed to set reference loci");
 			return res;

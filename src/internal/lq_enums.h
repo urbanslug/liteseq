@@ -1,17 +1,13 @@
 #ifndef LQ_ENUMS_H
 #define LQ_ENUMS_H
 
-#include <string.h> // strcmp
-
-// Macro for defining enums
-// and generating to_string functions
-#define DEFINE_ENUM_AND_STRING(enum_name, ENUM_DEF)                            \
+#define DEFINE_ENUM(enum_name, ENUM_DEF)                                       \
 	enum enum_name { ENUM_DEF(ENUM_ITEM) enum_name##_INVALID };            \
-									       \
 	/* Function prototypes */                                              \
 	const char *to_string_##enum_name(enum enum_name value);               \
-	enum enum_name from_string_##enum_name(const char *s);                 \
-									       \
+	enum enum_name from_string_##enum_name(const char *s);
+
+#define DEFINE_ENUM_AND_STRING(enum_name, ENUM_DEF)                            \
 	/* Function definitions */                                             \
 	const char *to_string_##enum_name(enum enum_name value)                \
 	{                                                                      \
@@ -31,11 +27,10 @@
 	}
 
 /*
-  sym     is the enum constant (e.g., GFA_1_0)
-  literal is the paired string (e.g., "VN:Z:1.0")
-  s       is the runtime query string passed into from_string_*
+ * sym     is the enum constant (e.g., GFA_1_0)
+ * literal is the paired string (e.g., "VN:Z:1.0")
+ * s       is the runtime query string passed into from_string_*
  */
-
 #define ENUM_ITEM(sym, literal) sym, // Enum generation
 #define ENUM_CASE(sym, literal)                                                \
 	case sym:                                                              \

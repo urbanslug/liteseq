@@ -156,3 +156,12 @@ idx_t count_digits(idx_t num)
 		return 1;
 	return (idx_t)log10(num) + 1;
 }
+
+void tokens_free(char **tokens, u32 N)
+{
+	for (size_t i = 0; i < N && tokens[i] != NULL; i++) {
+		free(tokens[i]);
+		tokens[i] = NULL;
+	}
+	// TODO is a memset here faster or better suited in case of errors?
+}

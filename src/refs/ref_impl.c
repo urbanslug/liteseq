@@ -11,11 +11,10 @@
 #endif
 
 #include <assert.h>
-#include <log.h>
-
 #include <stdio.h>
-
 #include <string.h>
+
+#include <log.h>
 
 #include "../../include/liteseq/refs.h"
 #include "../../include/liteseq/types.h"
@@ -299,4 +298,49 @@ struct ref *parse_ref_line(enum gfa_line_prefix prefix, const char *line)
 		log_error("%s Unsupported line prefix.");
 		return NULL;
 	}
+}
+
+/**
+ * @brief a wrapper function for handle_p_lines
+ */
+void *t_handle_p(void *ref_metadata)
+{
+	struct ref_thread_data *data = (struct ref_thread_data *)ref_metadata;
+	line *p_lines = data->p_lines;
+	line *w_lines = data->w_lines;
+	idx_t p_line_count = data->p_line_count;
+	idx_t w_line_count = data->w_line_count;
+	struct ref **refs = data->refs;
+	idx_t ref_idx = 0;
+
+	for (idx_t i = 0; i < p_line_count; i++)
+		refs[ref_idx++] = parse_ref_line(P_LINE, p_lines[i].start);
+
+	for (idx_t i = 0; i < w_line_count; i++)
+		refs[ref_idx++] = parse_ref_line(W_LINE, w_lines[i].start);
+
+	return NULL;
+}
+
+status_t pop_ref(pthread_t *t, struct ref_thread_data *ref_data)
+{
+	/* if (!gfa->inc_refs) */
+	/*	return SUCCESS; */
+
+	/* struct ref_thread_data *ref_data = */
+	/*	malloc(sizeof(struct ref_thread_data)); */
+	/* if (ref_data == NULL) { */
+	/*	return FAILURE; // Failed to allocate memory */
+	/* } */
+
+	/* ref_data->refs = gfa->refs; */
+	/* ref_data->p_lines = gfa->p_lines; */
+	/* ref_data->w_lines = gfa->w_lines; */
+	/* ref_data->p_line_count = gfa->p_line_count; */
+	/* ref_data->w_line_count = gfa->w_line_count; */
+
+	/* if (pthread_create(t, NULL, t_handle_p, (void *)&ref_data) != 0) */
+	/*	return FAILURE; // Failed to create thread for P lines */
+
+	return SUCCESS;
 }

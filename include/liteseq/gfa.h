@@ -24,13 +24,8 @@ typedef enum {
 #define GFA_VERSION_ITEMS(_)                                                   \
 	_(GFA_1_0, "VN:Z:1.0")                                                 \
 	_(GFA_1_1, "VN:Z:1.1")
-DEFINE_ENUM_AND_STRING(gfa_version, GFA_VERSION_ITEMS)
 
-/*
- * Structs
- * --------
- *
- */
+DEFINE_ENUM(gfa_version, GFA_VERSION_ITEMS)
 
 // a line in the GFA file
 typedef struct {
@@ -87,6 +82,7 @@ typedef struct {
 	idx_t l_line_count;
 	idx_t p_line_count;
 	idx_t w_line_count;
+
 	idx_t ref_count; // p_line_count + w_line_count
 } gfa_props;
 

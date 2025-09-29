@@ -6,12 +6,13 @@
 using namespace liteseq;
 
 // Step 1: Define enum/string pairs
-#define GFA_VERSION_ITEMS(_)                                                   \
+#define GFA_VERSION_ITEMS_TEST(_)                                              \
 	_(GFA_1_0, "VN:Z:1.0")                                                 \
 	_(GFA_1_1, "VN:Z:1.1")                                                 \
 	_(GFA_2_0, "VN:Z:2.0")
 
-DEFINE_ENUM_AND_STRING(gfa_versions_e, GFA_VERSION_ITEMS)
+DEFINE_ENUM(gfa_versions_e, GFA_VERSION_ITEMS_TEST)
+DEFINE_ENUM_AND_STRING(gfa_versions_e, GFA_VERSION_ITEMS_TEST)
 
 // valid options
 #define GFA_INVALID_STR "INVALID_STRING"

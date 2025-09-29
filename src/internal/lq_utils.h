@@ -80,7 +80,7 @@ struct split_str_params {
 };
 
 idx_t count_digits(idx_t num);
-
+void tokens_free(char **tokens, u32 N);
 /**
  * Tokenises a line into tokens based on a delimiter.
  * The tokens are allocated using malloc and should be freed by the caller.

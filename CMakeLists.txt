@@ -48,6 +48,8 @@ add_library(liteseq
   ${SRC_INTERNAL_DIR}/lq_utils.c
   ${SRC_INTERNAL_DIR}/lq_io.c
   ${SRC_DIR}/gfa.c
+  ${SRC_DIR}/gfa_l.c
+  ${SRC_DIR}/gfa_s.c
   ${SRC_DIR}/refs/ref_impl.c
   ${SRC_DIR}/refs/ref_walk.c
   ${SRC_DIR}/refs/ref_name.c
