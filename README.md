@@ -63,14 +63,14 @@ To compile the examples binary set `LITESEQ_BUILD_EXAMPLE` `ON` when configuring
 ```
 cmake -DLITESEQ_BUILD_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Debug  -H. -Bbuild && cmake --build build -- -j 3
 ```
-Run examples with `./build/liteseq-example`.
+Run examples with `./bin/liteseq-example <path/to/gfa>`.
 
 ## Usage and Examples
 
 1. Include Headers:
 
 ```
-#include <gfa.h>
+#include <liteseq/gfa.h>
 ```
 
 2. Set Up Configuration:
@@ -96,10 +96,11 @@ gfa_props *gfa = gfa_new(config);
 gfa_free(gfa);
 ```
 
-See [`examples/example.c`](./examples/example.c) for more detailed usage.
+See [`examples/example.c`](./examples/example.c) for a more detailed example.
 
 ## Contributing
-Contributions, bug reports, and feature requests are welcome. Please open an issue or a pull request on GitHub.
+Contributions, bug reports, and feature requests are welcome.
+Please open an issue or a pull request here on GitHub.
 
 ## License
 MIT
