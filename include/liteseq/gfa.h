@@ -68,10 +68,11 @@ typedef struct {
 	line *p_lines;
 	line *w_lines;
 
-	u32 min_v_id; // the minimum vertex id in the GFA file
-	u32 max_v_id; // the maximum vertex id in the GFA file
+	u32 min_v_id;	  // the minimum vertex id in the GFA file
+	u32 max_v_id;	  // the maximum vertex id in the GFA file
+	u32 vtx_arr_size; // the size of the vertex array (max_v_id + 1)
 
-	vtx *v;		   // the array of vertices
+	vtx **v;	   // the array of vertices
 	edge *e;	   // the array of edges
 	struct ref **refs; // the reference sequences
 
@@ -91,6 +92,8 @@ typedef struct {
 	bool inc_vtx_labels;
 	bool inc_refs;
 } gfa_config;
+
+struct ref *get_ref(gfa_props *gfa, idx_t ref_idx);
 
 gfa_props *gfa_new(const gfa_config *conf);
 

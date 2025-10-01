@@ -71,6 +71,15 @@ void destroy_ref(struct ref **r)
 	}
 }
 
+struct ref *get_ref(gfa_props *gfa, idx_t ref_idx)
+{
+	if (!gfa || ref_idx >= gfa->ref_count) {
+		return NULL;
+	}
+
+	return gfa->refs[ref_idx];
+}
+
 const char *get_tag(const struct ref *r)
 {
 	if (!r)

@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 3.14)
 project(liteseq VERSION 0.0.1 LANGUAGES C CXX)
 
 configure_file(
-  ${CMAKE_SOURCE_DIR}/include/liteseq/version.h.in
-  ${CMAKE_BINARY_DIR}/generated/liteseq/version.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/liteseq/version.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/liteseq/version.h
   @ONLY)
 
 # === BUILD OPTIONS ===

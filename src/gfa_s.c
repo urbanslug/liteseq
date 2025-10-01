@@ -15,7 +15,7 @@
 #define S_LINE_SEQ_IDX 2  // the index of the sequence token in the S line
 
 status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
-		  vtx *vertices)
+		  vtx **vertices)
 {
 	struct split_str_params p = {
 		.str = s_line,
@@ -36,9 +36,16 @@ status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
 		return res;
 	}
 
-	vtx v = {.id = strtoul(tokens[S_LINE_V_ID_IDX], NULL, 10),
-		 .seq = inc_vtx_labels ? tokens[S_LINE_SEQ_IDX] : NULL};
-	vertices[v.id] = v;
+	vtx *v = malloc(sizeof(vtx));
+	if (v == NULL) {
+		log_fatal("Could not allocate memory for vertex");
+		return FAILURE;
+	}
+	v->id = strtoul(tokens[S_LINE_V_ID_IDX], NULL, 10);
+	v->seq = inc_vtx_labels ? tokens[S_LINE_SEQ_IDX] : NULL;
+	/* vtx v = {.id = strtoul(tokens[S_LINE_V_ID_IDX], NULL, 10), */
+	/*	 .seq = inc_vtx_labels ? tokens[S_LINE_SEQ_IDX] : NULL}; */
+	vertices[v->id] = v;
 
 	free(tokens[S_LINE_TYPE_IDX]); // free the line type token
 	free(tokens[S_LINE_V_ID_IDX]); // free the vertex ID token
@@ -47,7 +54,7 @@ status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
 	if (!inc_vtx_labels)
 		free(tokens[S_LINE_SEQ_IDX]);
 
-	return 0;
+	return SUCCESS;
 }
 
 /**
@@ -56,7 +63,7 @@ status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
 void *t_handle_s(void *s_meta)
 {
 	struct s_thread_meta *meta = (struct s_thread_meta *)s_meta;
-	vtx *vtxs = meta->vertices;
+	vtx **vtxs = meta->vertices;
 	line *line_positions = meta->s_lines;
 	idx_t line_count = meta->s_line_count;
 	bool inc_vtx_labels = meta->inc_vtx_labels;

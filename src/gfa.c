@@ -65,7 +65,6 @@ status_t set_version(const char *h_line, const char *newline, gfa_props *g)
 
 	char *version_str = tokens[H_LINE_VERSION_IDX];
 	char *nl = strchr(version_str, NEWLINE);
-	log_info("Detected GFA version: %s", version_str);
 	g->version = from_string_gfa_version(version_str);
 	if (g->version == gfa_version_INVALID) {
 		log_fatal("Unsupported GFA version: %s", version_str);
@@ -168,6 +167,10 @@ status_t analyse_gfa_structure(gfa_props *g)
 		curr_line++;
 	}
 
+	// assumes at least one vertex found
+	// TODO: [c] is that a safe assumption?
+	g->vtx_arr_size = g->max_v_id + 1;
+
 	return 0;
 }
 
@@ -240,7 +243,7 @@ status_t index_lines(gfa_props *gfa)
 
 status_t set_ref_loci(gfa_props *gfa)
 {
-	vtx *vs = gfa->v;
+	vtx **vs = gfa->v;
 	if (vs == NULL)
 		return ERROR_CODE_INVALID_ARGUMENT;
 
@@ -251,7 +254,11 @@ status_t set_ref_loci(gfa_props *gfa)
 		for (int j = 0; j < rw->step_count; j++) {
 			rw->loci[j] = pos;
 			idx_t v_id = rw->v_ids[j];
-			idx_t l = pos += strlen(vs[v_id].seq);
+
+			if (vs[v_id] == NULL) {
+				continue;
+			}
+			idx_t l = pos += strlen(vs[v_id]->seq);
 		}
 		set_hap_len(r, pos - 1);
 	}
@@ -321,15 +328,14 @@ status_t populate_gfa(gfa_props *gfa)
  */
 status_t preallocate_gfa(gfa_props *p)
 {
-	u32 vtx_arr_size = p->max_v_id + 1;
-	p->v = malloc(sizeof(vtx) * vtx_arr_size);
+	p->v = calloc(p->vtx_arr_size, sizeof(vtx *));
+	// p->v = malloc(sizeof(vtx) * p->vtx_arr_size);
 	if (!p->v)
 		return ERROR_CODE_OUT_OF_MEMORY;
 	// init with NULLs makes freeing more straightforward
-	// memset sssumes seq pointers are at offset 0 in the vtx structure
-	if (p->inc_vtx_labels) {
-		memset(p->v, 0, sizeof(vtx) * vtx_arr_size);
-	}
+	// memset assumes seq pointers are at offset 0 in the vtx structure
+	// memset(p->v, 0, sizeof(vtx) * p->vtx_arr_size);
+	// if (p->inc_vtx_labels) {}
 
 	p->e = malloc(p->l_line_count * sizeof(edge));
 	if (!p->e)
@@ -445,9 +451,12 @@ void gfa_free(gfa_props *gfa)
 
 	if (gfa->inc_vtx_labels)
 		for (idx_t i = 0; i < (gfa->max_v_id + 1); i++)
-			if (gfa->v[i].seq != NULL)
-				free(gfa->v[i].seq);
+			if (gfa->v[i] != NULL && gfa->v[i]->seq != NULL)
+				free(gfa->v[i]->seq);
 
+	for (idx_t i = 0; i < gfa->vtx_arr_size; i++)
+		if (gfa->v[i] != NULL)
+			free(gfa->v[i]);
 	if (gfa->v)
 		free(gfa->v);
 
