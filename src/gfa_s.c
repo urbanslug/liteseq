@@ -14,6 +14,11 @@
 #define S_LINE_V_ID_IDX 1 // the index of the vertex ID token in the S line
 #define S_LINE_SEQ_IDX 2  // the index of the sequence token in the S line
 
+vtx *get_vtx(gfa_props *gfa, id_t v_id)
+{
+	return gfa->v[v_id];
+}
+
 status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
 		  vtx **vertices)
 {

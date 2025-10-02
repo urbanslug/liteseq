@@ -93,6 +93,7 @@ typedef struct {
 	bool inc_refs;
 } gfa_config;
 
+vtx *get_vtx(gfa_props *gfa, id_t v_id);
 struct ref *get_ref(gfa_props *gfa, idx_t ref_idx);
 
 gfa_props *gfa_new(const gfa_config *conf);
