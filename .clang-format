@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+UseTab: Always
+IndentWidth: 8
+TabWidth: 8
+ContinuationIndentWidth: 8
+ColumnLimit: 80
+
+BreakBeforeBraces: Linux
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
+IndentCaseLabels: false
+SpaceBeforeParens: ControlStatements
+DerivePointerAlignment: false
+PointerAlignment: Right   # key bit: renders `char *p`, not `char* p`
