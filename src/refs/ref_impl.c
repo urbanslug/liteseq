@@ -229,14 +229,14 @@ const struct line_metadata *get_line_metadata(enum gfa_line_prefix prefix)
 }
 
 // Consolidated line parsing logic using metadata
-struct ref *parse_line_generic(const char *line,
+struct ref *parse_line_generic(const char *line, u32 len,
 			       const struct line_metadata *meta)
 {
 	char *tokens[MAX_TOKENS] = {NULL};
 	struct split_str_params p = {
 		// input
 		.str = line,
-		.up_to = NULL,
+		.up_to = line + len,
 		.delimiter = TAB_CHAR,
 		.max_splits = meta->required_tokens,
 		.fallbacks = (const char[]){NEWLINE, NULL_CHAR},
@@ -296,13 +296,14 @@ struct ref *parse_line_generic(const char *line,
 	return alloc_ref(meta->line_prefix, &w, &r_id);
 }
 
-struct ref *parse_ref_line(enum gfa_line_prefix prefix, const char *line)
+struct ref *parse_ref_line(enum gfa_line_prefix prefix, const char *line,
+			   u32 len)
 {
 	switch (prefix) {
 	case (P_LINE):
-		return parse_line_generic(line, &metadata[P_LINE]);
+		return parse_line_generic(line, len, &metadata[P_LINE]);
 	case (W_LINE):
-		return parse_line_generic(line, &metadata[W_LINE]);
+		return parse_line_generic(line, len, &metadata[W_LINE]);
 	default:
 		log_error("%s Unsupported line prefix.");
 		return NULL;
@@ -315,41 +316,20 @@ struct ref *parse_ref_line(enum gfa_line_prefix prefix, const char *line)
 void *t_handle_p(void *ref_metadata)
 {
 	struct ref_thread_data *data = (struct ref_thread_data *)ref_metadata;
-	line *p_lines = data->p_lines;
-	line *w_lines = data->w_lines;
+	line *pl = data->p_lines;
+	line *wl = data->w_lines;
 	idx_t p_line_count = data->p_line_count;
 	idx_t w_line_count = data->w_line_count;
 	struct ref **refs = data->refs;
 	idx_t ref_idx = 0;
 
 	for (idx_t i = 0; i < p_line_count; i++)
-		refs[ref_idx++] = parse_ref_line(P_LINE, p_lines[i].start);
+		refs[ref_idx++] =
+			parse_ref_line(P_LINE, pl[i].start, pl[i].len);
 
 	for (idx_t i = 0; i < w_line_count; i++)
-		refs[ref_idx++] = parse_ref_line(W_LINE, w_lines[i].start);
+		refs[ref_idx++] =
+			parse_ref_line(W_LINE, wl[i].start, wl[i].len);
 
 	return NULL;
-}
-
-status_t pop_ref(pthread_t *t, struct ref_thread_data *ref_data)
-{
-	/* if (!gfa->inc_refs) */
-	/*	return SUCCESS; */
-
-	/* struct ref_thread_data *ref_data = */
-	/*	malloc(sizeof(struct ref_thread_data)); */
-	/* if (ref_data == NULL) { */
-	/*	return FAILURE; // Failed to allocate memory */
-	/* } */
-
-	/* ref_data->refs = gfa->refs; */
-	/* ref_data->p_lines = gfa->p_lines; */
-	/* ref_data->w_lines = gfa->w_lines; */
-	/* ref_data->p_line_count = gfa->p_line_count; */
-	/* ref_data->w_line_count = gfa->w_line_count; */
-
-	/* if (pthread_create(t, NULL, t_handle_p, (void *)&ref_data) != 0) */
-	/*	return FAILURE; // Failed to create thread for P lines */
-
-	return SUCCESS;
 }

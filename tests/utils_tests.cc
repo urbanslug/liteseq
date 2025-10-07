@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "../src/internal/lq_utils.h"
 #include <liteseq/types.h>
 
 using namespace liteseq;
-
-// #define MAX_TOKENS 10
 
 TEST(EncodeBase, ValidBases)
 {
@@ -93,5 +93,40 @@ TEST(Tokenise, NoDelim)
 	for (size_t i = 0; i < MAX_TOKENS && tokens[i] != NULL; i++) {
 		free(tokens[i]);
 		tokens[i] = NULL;
+	}
+}
+
+TEST(Tokenise, SLine)
+{
+	const char *input = "S\t1\tAT\nL\t1\t2\t+\t0M";
+	auto input_str = std::string(input);
+	size_t newline_pos = input_str.find_first_of(NEWLINE);
+	const char delim = TAB_CHAR;
+	const idx_t fallback_chars_count = 0;
+	const char *fallbacks = "";
+	const idx_t EXPECTED_S_LINE_TOKENS = 3;
+	// idx_t line_length = strlen(input);
+	char *tokens[EXPECTED_S_LINE_TOKENS] = {NULL};
+	idx_t tokens_found = 0;
+	const idx_t expected_tokens_found = EXPECTED_S_LINE_TOKENS;
+	const char *out_tokens[EXPECTED_S_LINE_TOKENS] = {"S", "1", "AT"};
+
+	struct split_str_params p = {
+		input, // str: Must be the first member in the struct
+		input + newline_pos,	// up_to
+		delim,			// delimiter
+		fallbacks,		// fallbacks
+		fallback_chars_count,	// fallback_chars_count
+		EXPECTED_S_LINE_TOKENS, // max_tokens
+		tokens_found,		// tokens_found
+		tokens,			// tokens
+		nullptr			// end
+	};
+
+	status_t res = split_str(&p);
+	ASSERT_EQ(res, SUCCESS);
+	ASSERT_EQ(p.tokens_found, expected_tokens_found);
+	for (idx_t i = 0; i < p.tokens_found; i++) {
+		ASSERT_STREQ(p.tokens[i], out_tokens[i]);
 	}
 }

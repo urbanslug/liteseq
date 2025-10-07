@@ -33,7 +33,8 @@
  * @param [out] e the edges to populate
  * @return 0 on success, -1 on failure
  */
-status_t handle_l(const char *l_line, size_t idx, char **tokens, edge *edges)
+status_t handle_l(const char *l_line, u32 line_len, size_t idx, char **tokens,
+		  edge *edges)
 {
 	struct split_str_params p = {
 		.str = l_line,
@@ -94,15 +95,14 @@ void *t_handle_l(void *l_meta)
 {
 	struct l_thread_meta *meta = (struct l_thread_meta *)l_meta;
 	edge *edges = meta->edges;
-	line *line_positions = meta->l_lines;
+	line *ll = meta->l_lines;
 	idx_t line_count = meta->l_line_count;
 
 	// temporary storage for the tokens extracted from a given line
 	char *tokens[EXPECTED_L_LINE_TOKENS] = {NULL};
 
-	for (idx_t i = 0; i < line_count; i++) {
-		handle_l(line_positions[i].start, i, tokens, edges);
-	}
+	for (idx_t i = 0; i < line_count; i++)
+		handle_l(ll[i].start, ll[i].len, i, tokens, edges);
 
 	return NULL;
 }

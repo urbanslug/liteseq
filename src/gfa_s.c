@@ -19,12 +19,12 @@ vtx *get_vtx(gfa_props *gfa, id_t v_id)
 	return gfa->v[v_id];
 }
 
-status_t handle_s(const char *s_line, char **tokens, bool inc_vtx_labels,
-		  vtx **vertices)
+status_t handle_s(const char *s_line, u32 line_len, char **tokens,
+		  bool inc_vtx_labels, vtx **vertices)
 {
 	struct split_str_params p = {
 		.str = s_line,
-		.up_to = NULL,
+		.up_to = s_line + line_len,
 		.delimiter = TAB_CHAR,
 		.fallbacks = "",
 		.fallback_chars_count = 0,
@@ -69,7 +69,7 @@ void *t_handle_s(void *s_meta)
 {
 	struct s_thread_meta *meta = (struct s_thread_meta *)s_meta;
 	vtx **vtxs = meta->vertices;
-	line *line_positions = meta->s_lines;
+	line *sl = meta->s_lines;
 	idx_t line_count = meta->s_line_count;
 	bool inc_vtx_labels = meta->inc_vtx_labels;
 
@@ -77,7 +77,7 @@ void *t_handle_s(void *s_meta)
 	char *tokens[EXPECTED_S_LINE_TOKENS] = {NULL};
 
 	for (idx_t i = 0; i < line_count; i++)
-		handle_s(line_positions[i].start, tokens, inc_vtx_labels, vtxs);
+		handle_s(sl[i].start, sl[i].len, tokens, inc_vtx_labels, vtxs);
 
 	return NULL;
 }

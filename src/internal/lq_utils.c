@@ -5,7 +5,7 @@
 #include <log.h>
 #include <math.h>
 
-#include "../include/liteseq/types.h"
+#include "../../include/liteseq/types.h"
 #include "./lq_utils.h"
 
 uint8_t encodeBase(char base)
@@ -134,8 +134,6 @@ status_t split_str(struct split_str_params *p)
 
 		memcpy(tok, str, len);
 		tok[len] = '\0';
-
-		// log_info("%s Token %u found: %s", fn, tokens_found, tok);
 
 		all_tokens[tokens_found++] = tok;
 

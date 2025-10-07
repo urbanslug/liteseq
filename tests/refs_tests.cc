@@ -295,7 +295,6 @@ TEST(AllocRef, Valid)
 
 TEST(ParseWLines, Valid)
 {
-
 	const char *w_lines[] = {
 		"W\tshort\t1\tchr\t0\t8\t>1>4>5<6>7>9",
 		"W\talt\t0\tchr\t0\t9\t>1>2>4>5>6>8>9",
@@ -326,13 +325,14 @@ TEST(ParseWLines, Valid)
 	const idx_t N = 3;
 	for (idx_t i = 0; i < N; i++) {
 		char *w_line = strdup(w_lines[i]);
+		u32 line_len = (u32)strlen(w_line);
 
 		if (w_line == NULL) {
 			fprintf(stderr, "Memory allocation failed\n");
 			exit(EXIT_FAILURE);
 		}
 
-		ref *r = parse_ref_line(W_LINE, w_line);
+		ref *r = parse_ref_line(W_LINE, w_line, line_len);
 		ASSERT_NE(r, nullptr);
 
 		// ASSERT_EQ(get_line_prefix(r), W_LINE);
@@ -385,8 +385,9 @@ TEST(ParsePLines, Valid)
 			fprintf(stderr, "Memory allocation failed\n");
 			exit(EXIT_FAILURE);
 		}
+		u32 line_len = (u32)strlen(p_line);
 
-		ref *r = parse_ref_line(P_LINE, p_line);
+		ref *r = parse_ref_line(P_LINE, p_line, line_len);
 		ASSERT_NE(r, nullptr);
 
 		ASSERT_EQ(get_line_prefix(r), P_LINE);

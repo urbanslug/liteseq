@@ -66,7 +66,8 @@ struct ref {
 	struct ref_walk *walk;
 	struct ref_id *id;
 };
-struct ref *parse_ref_line(enum gfa_line_prefix line_type, const char *line);
+struct ref *parse_ref_line(enum gfa_line_prefix line_type, const char *line,
+			   u32 len);
 void destroy_ref(struct ref **r);
 
 /*
